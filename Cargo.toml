@@ -1,0 +1,7 @@
+[package]
+name = "record"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gtk4 = "0.8.2"
