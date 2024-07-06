@@ -1,5 +1,10 @@
-use gtk4::{glib, Application, ApplicationWindow, Button, Entry};
-use gtk4::{prelude::*, Orientation};
+use std::rc::Rc;
+
+use gtk4::prelude::*;
+use gtk4::{glib, Application, ApplicationWindow, Stack};
+use ui::pages::{chat_page, login_page};
+
+pub mod ui;
 
 const APP_ID: &str = "org.gtk_rs.record";
 
@@ -21,29 +26,16 @@ fn build_ui(app: &Application) {
         .title("Record")
         .build();
 
-    login(&window);
+    let stack = Stack::new();
+    let stack_rc = Rc::new(stack.clone());
+    // ===
+    login_page(stack_rc.clone());
+
+    chat_page(stack_rc.clone());
+    // ===
+
+    window.set_child(Some(&stack));
 
     // Present window
     window.present();
-}
-
-fn login(window: &ApplicationWindow) {
-    // Create a vertical box layout
-    let vbox = gtk4::Box::new(Orientation::Vertical, 5);
-
-    // Token Enetery field
-    let entry = Entry::new();
-    entry.set_placeholder_text(Some("Place token here."));
-    vbox.append(&entry);
-
-    // Submit Token
-    let submit = Button::new();
-    submit.set_label("Submit");
-    submit.connect_clicked(move |_| {
-        let token = entry.text();
-        println!("{}", token);
-    });
-    vbox.append(&submit);
-
-    window.set_child(Some(&vbox));
 }
