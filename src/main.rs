@@ -9,6 +9,7 @@ pub mod ui;
 const APP_ID: &str = "org.gtk_rs.record";
 
 fn main() -> glib::ExitCode {
+    //TEST
     // Create a new application
     let app = Application::builder().application_id(APP_ID).build();
 
