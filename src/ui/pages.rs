@@ -29,7 +29,7 @@ pub fn login_page(parent_stack: Rc<Stack>) {
 
         if let Some(token) = &user.discord_token {
             //TODO: add a token validator. If the token is true, save it into file.
-            let mut data_file = File::create("loginInfo").expect("creation failed");
+            let mut data_file = File::create("./public/loginInfo").expect("creation failed");
             data_file.write(token.as_bytes()).expect("Write Failed");
 
             parent_stack.set_visible_child_name("chats");

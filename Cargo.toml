@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 gtk4 = "0.8.2"
-tokio = { version = "1", features = ["full"] }
+
