@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::io::Read;
 use std::rc::Rc;
 
 use gtk4::prelude::*;
@@ -5,6 +7,10 @@ use gtk4::{glib, Application, ApplicationWindow, Stack};
 use ui::pages::{chat_page, login_page};
 
 pub mod ui;
+
+pub struct LoginInfo {
+    discord_token: Option<String>,
+}
 
 const APP_ID: &str = "org.gtk_rs.record";
 
@@ -28,14 +34,29 @@ fn build_ui(app: &Application) {
 
     let stack = Stack::new();
     let stack_rc = Rc::new(stack.clone());
-    // ===
-    login_page(stack_rc.clone());
-
-    chat_page(stack_rc.clone());
-    // ===
+    match get_tokens() {
+        Some(login_info) => chat_page(stack_rc.clone(), login_info),
+        None => login_page(stack_rc.clone()),
+    };
 
     window.set_child(Some(&stack));
 
     // Present window
     window.present();
+}
+
+fn get_tokens() -> Option<LoginInfo> {
+    let tokens_path = "public/loginInfo";
+
+    match File::open(tokens_path) {
+        Ok(mut login_info) => {
+            let mut token_data = String::new();
+            login_info.read_to_string(&mut token_data).unwrap();
+
+            Some(LoginInfo {
+                discord_token: Some(token_data),
+            })
+        }
+        Err(_) => None,
+    }
 }

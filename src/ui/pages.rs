@@ -1,10 +1,10 @@
-use std::rc::Rc;
-use std::{io::Write, fs::File};
 use gtk4::{prelude::*, Button, Stack};
 use gtk4::{Entry, Orientation};
-struct LoginInfo {
-    discord_token: Option<String>
-}
+use std::rc::Rc;
+use std::{fs::File, io::Write};
+
+use crate::LoginInfo;
+
 pub fn login_page(parent_stack: Rc<Stack>) {
     let login = gtk4::Box::new(Orientation::Vertical, 5);
 
@@ -19,30 +19,31 @@ pub fn login_page(parent_stack: Rc<Stack>) {
     parent_stack.add_child(&login);
 
     submit_token.connect_clicked(move |_| {
+        let entered_text = String::from(token_entry.text());
 
-        let entered_text = token_entry.text().trim().to_string();
+        if entered_text.is_empty() {
+            return;
+        }
 
         let user = LoginInfo {
-            // Filter will convert "Some" to "None" if the entry is empty
-            discord_token: Some(entered_text).filter(|s| !s.is_empty()),
+            discord_token: Some(entered_text),
         };
 
         if let Some(token) = &user.discord_token {
             //TODO: add a token validator. If the token is true, save it into file.
             let mut data_file = File::create("./public/loginInfo").expect("creation failed");
-            data_file.write(token.as_bytes()).expect("Write Failed");
+            data_file.write_all(token.as_bytes()).expect("Write Failed");
 
+            chat_page(parent_stack.clone(), user);
             parent_stack.set_visible_child_name("chats");
             parent_stack.remove(&login);
-
         } else {
             println!("No token entered.");
         }
-
     });
 }
 
-pub fn chat_page(parent_stack: Rc<Stack>) {
+pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo) {
     let sections = gtk4::Box::new(Orientation::Horizontal, 0);
     let chats = gtk4::Box::new(Orientation::Vertical, 5);
     sections.append(&chats);
