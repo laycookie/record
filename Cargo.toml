@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gtk4 = "0.8.2"
+gtk4 = "0.9.0"
+reqwest = { version = "0.12.5", features = ["json"] }
+tokio = { version = "1.0.1", features = ["full", "rt-multi-thread"] }
+async-channel = "2.3.1"
 
