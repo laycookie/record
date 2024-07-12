@@ -1,0 +1,1 @@
+pub const AUTH_URL:&str = "https://discord.com/api/v9/users/@me";

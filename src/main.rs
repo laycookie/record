@@ -8,6 +8,7 @@ use tokio::runtime::Runtime;
 use ui::pages::{chat_page, login_page};
 
 pub mod ui;
+pub mod discord;
 
 pub struct LoginInfo {
     discord_token: Option<String>,
@@ -17,7 +18,7 @@ const APP_ID: &str = "org.gtk_rs.record";
 
 
 fn main() -> glib::ExitCode {
-    //TEST
+
     // Create a new application
     let app = Application::builder().application_id(APP_ID).build();
 

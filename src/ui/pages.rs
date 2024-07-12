@@ -1,22 +1,15 @@
-use gtk4::{prelude::*, Button, Stack};
-use gtk4::glib::{self, clone};
-use gtk4::{Entry, Orientation};
+use gtk4::{prelude::*, Button, Stack, Entry, Orientation};
 use std::rc::Rc;
-use std::{sync::OnceLock, fs::File, io::Write};
-use std::sync::{Arc, mpsc};
-use reqwest::header::{HeaderMap, HeaderValue};
-use tokio::runtime::Runtime;
-use crate::{get_tokens, runtime};
-
+use std::{fs::File, io::Write, sync::Arc};
+use reqwest::header::HeaderValue;
+use crate::runtime;
+use crate::discord::{get_data::get_login_by_token, discord_endpoints::AUTH_URL};
 use crate::LoginInfo;
+
 
 pub fn login_page(parent_stack: Rc<Stack>) {
 
-
-
     let login = gtk4::Box::new(Orientation::Vertical, 5);
-    let url = "https://discord.com/api/v9/users/@me";
-
     let token_entry = Entry::new();
     token_entry.set_placeholder_text(Some("Place token here."));
     login.append(&token_entry);
@@ -29,7 +22,6 @@ pub fn login_page(parent_stack: Rc<Stack>) {
 
     submit_token.connect_clicked( move |_| {
         let entered_text = String::from(token_entry.text());
-
 
         if entered_text.is_empty() {
             return;
@@ -46,11 +38,8 @@ pub fn login_page(parent_stack: Rc<Stack>) {
             let token = Arc::new(token.clone());
 
             runtime().spawn( async move {
-
-                let token_str = token.clone();
-                let header_value = HeaderValue::from_str(&token_str);
-                // sending API request
-                let response = get_login_by_token(url, header_value.unwrap()).await;
+                let header_value = HeaderValue::from_str(&token.clone());
+                let response = get_login_by_token(AUTH_URL, header_value.unwrap()).await;
             });
 
             chat_page(parent_stack.clone(), user);
@@ -77,15 +66,3 @@ pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo) {
     parent_stack.add_named(&sections, Some("chats"));
 }
 
-async fn get_login_by_token(url: &str, header:HeaderValue) -> Result<String, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .header("Authorization", header)
-        .send()
-        .await?
-        .text()
-        .await?;
-    println!("{}", response);
-    Ok(response)
-}
