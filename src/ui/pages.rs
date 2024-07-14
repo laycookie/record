@@ -6,7 +6,7 @@ use crate::runtime;
 use crate::discord::{get_data::get_login_by_token, discord_endpoints::AUTH_URL};
 use crate::LoginInfo;
 
-
+//--TEST--
 pub fn login_page(parent_stack: Rc<Stack>) {
 
     let login = gtk4::Box::new(Orientation::Vertical, 5);
