@@ -1,17 +1,17 @@
-use reqwest::header::HeaderValue;
+use std::collections::HashMap;
+use std::sync::Arc;
+use reqwest::header::{HeaderMap, HeaderValue};
 
-pub fn get_friendlist_ids() {
-    println!("Get");
-}
-pub async fn get_login_by_token(url: &str, header:HeaderValue) -> Result<String, Box<dyn std::error::Error>> {
+pub async fn discord_api_call(url: &str, headers: HashMap<&str, Arc<String>>) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .header("Authorization", header)
-        .send()
-        .await?
-        .text()
-        .await?;
-    println!("{}", response);
-    Ok(response)
+    let mut request = client.get(url);
+    for (key, value) in headers
+    {
+        request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
+    }
+    let response = request.send().await?;
+    println!("Status: {}", response.status());
+    let response_text: String = response.text().await?;
+    let response_text: serde_json::Value = serde_json::from_str(response_text.as_str())?;
+    Ok(response_text)
 }
