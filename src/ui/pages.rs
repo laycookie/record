@@ -1,8 +1,17 @@
 use gtk4::{prelude::*, Button, Stack, Entry, Orientation};
+
 use std::{rc::Rc, fs::File, io::Write, sync::{Arc, mpsc}};
 use std::collections::HashMap;
 use crate::{runtime, LoginInfo};
 use crate::discord::{get_data::discord_api_call, discord_endpoints::{FRIENDLIST_URL}};
+
+use std::rc::Rc;
+use std::{fs::File, io::Write, sync::Arc};
+use reqwest::header::HeaderValue;
+use crate::runtime;
+use crate::discord::{get_data::get_login_by_token, discord_endpoints::AUTH_URL};
+use crate::LoginInfo;
+
 
 pub fn login_page(parent_stack: Rc<Stack>) {
 
