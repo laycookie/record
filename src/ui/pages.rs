@@ -41,6 +41,8 @@ pub fn login_page(parent_stack: Rc<Stack>) {
             println!("No token entered.");
         }
     });
+
+
 }
 
 pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo) {
