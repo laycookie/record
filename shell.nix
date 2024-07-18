@@ -8,6 +8,9 @@ pkgs.mkShell {
 		rust-analyzer
 		rustfmt
 		clippy
+		
+		openssl
+
 		pkg-config
 		libxkbcommon
 		wayland

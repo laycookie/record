@@ -1,14 +1,14 @@
+use gtk4::prelude::*;
+use gtk4::{glib, Application, ApplicationWindow, Stack};
 use std::fs::File;
 use std::io::Read;
 use std::rc::Rc;
 use std::sync::OnceLock;
-use gtk4::prelude::*;
-use gtk4::{glib, Application, ApplicationWindow, Stack};
 use tokio::runtime::Runtime;
 use ui::pages::{chat_page, login_page};
 
-pub mod ui;
 pub mod discord;
+pub mod ui;
 
 pub struct LoginInfo {
     discord_token: Option<String>,
@@ -16,9 +16,7 @@ pub struct LoginInfo {
 
 const APP_ID: &str = "org.gtk_rs.record";
 
-
 fn main() -> glib::ExitCode {
-
     // Create a new application
     let app = Application::builder().application_id(APP_ID).build();
 
@@ -64,9 +62,13 @@ pub fn get_tokens() -> Option<LoginInfo> {
         Err(_) => None,
     }
 }
+
+pub fn invalidete_token(tokens: &mut LoginInfo) {
+    tokens.discord_token = None;
+}
+
 pub fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
-    RUNTIME.get_or_init(|| {
-        Runtime::new().expect("Setting up tokio runtime needs to succeed.")
-    })
+    RUNTIME.get_or_init(|| Runtime::new().expect("Setting up tokio runtime needs to succeed."))
 }
+
