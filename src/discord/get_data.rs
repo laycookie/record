@@ -49,7 +49,7 @@ pub fn init_data(token: &String) -> Result<i32, std::io::Error> {
         headers.insert("Authorization", token_arc.to_string());
         let res = discord_api_call(ApiEndpoints::FriendList, headers)
             .await
-            .expect("Error: Failed to validate the token");
+            .expect("Discord API failed to process request to validate the token");
 
         println!("test");
         if res.is_sucessful() {
