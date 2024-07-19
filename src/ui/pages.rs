@@ -1,5 +1,6 @@
-use gtk4::{prelude::*, Button, Entry, Orientation, Stack};
+use gtk4::{prelude::*, Button, Entry, Label, Orientation, Stack};
 
+use super::components::components::user_button;
 use crate::discord::get_data::init_data;
 use crate::LoginInfo;
 use std::{fs::File, io::Write, rc::Rc};
@@ -47,14 +48,53 @@ pub fn login_page(parent_stack: Rc<Stack>) {
 
 pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo) {
     let sections = gtk4::Box::new(Orientation::Horizontal, 0);
-    let chats = gtk4::Box::new(Orientation::Vertical, 5);
-    sections.append(&chats);
+    let selected_chat = gtk4::Stack::new();
+    let selected_chat_rc = Rc::new(selected_chat.clone());
+    {
+        // === Friend List ===
+        let friend_list = gtk4::Box::new(Orientation::Vertical, 4);
 
-    for _ in 0..5 {
-        let chat = Button::new();
-        chat.set_label("test");
-        chats.append(&chat);
+        let test = Label::new(Some("friend list"));
+        friend_list.append(&test);
+
+        selected_chat.add_named(&friend_list, Some("friend list"));
+        // === Chat ===
+        let chat = gtk4::Box::new(Orientation::Vertical, 4);
+
+        let test = Label::new(Some("chat"));
+        chat.append(&test);
+
+        selected_chat.add_named(&chat, Some("chat"));
     }
+    // === Sidebar ===
+    let sidebar = gtk4::Box::new(Orientation::Vertical, 20);
+
+    {
+        let menue = gtk4::Box::new(Orientation::Vertical, 5);
+        let friends = Button::new();
+        friends.set_label("Friends");
+        friends.connect_clicked(move |_| {
+            selected_chat_rc.set_visible_child_name("friend list");
+        });
+        menue.append(&friends);
+        sidebar.append(&menue);
+    }
+
+    {
+        let scroll = gtk4::ScrolledWindow::new();
+        scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+
+        let contact_list = gtk4::Box::new(Orientation::Vertical, 5);
+        scroll.set_child(Some(&contact_list));
+        for _ in 0..20 {
+            user_button(&contact_list, Rc::new(selected_chat.clone()));
+        }
+        sidebar.append(&scroll);
+    }
+
+    // ===
+    sections.append(&sidebar);
+    sections.append(&selected_chat);
 
     parent_stack.add_named(&sections, Some("chats"));
 }
