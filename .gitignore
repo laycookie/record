@@ -17,4 +17,5 @@ Cargo.lock
 .idea/
 
 # stores user data
-public/
+public/loginInfo
+public/Contacts/*
