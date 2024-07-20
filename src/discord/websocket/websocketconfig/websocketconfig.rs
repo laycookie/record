@@ -1,5 +1,5 @@
 use serde_json::{json, Value};
-use crate::discord::websocketconfig::discord_intents;
+use crate::discord::websocket::websocketconfig::discord_intents;
 
 pub struct Payload
 {
@@ -34,7 +34,6 @@ impl Payload
 
         Self { identify, heart_beat }
     }
-
 }
 
 

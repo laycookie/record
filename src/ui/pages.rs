@@ -1,10 +1,10 @@
 use gtk4::{prelude::*, Button, Entry, Label, Orientation, Stack};
 
 use super::components::components::user_button;
-use crate::discord::get_data::init_data;
+
 use crate::{LoginInfo, runtime};
 use std::{fs::File, io::Write, rc::Rc};
-
+use crate::discord::rest_api::utils::init_data;
 use crate::discord::websocket;
 pub fn login_page(parent_stack: Rc<Stack>) {
     let login = gtk4::Box::new(Orientation::Vertical, 5);
@@ -50,7 +50,7 @@ pub fn login_page(parent_stack: Rc<Stack>) {
 pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo) {
     runtime().spawn( async move
     {
-        websocket::websocket_init(&token_data.discord_token.unwrap()).await;
+        websocket::websocket::websocket_init(&token_data.discord_token.unwrap()).await;
     });
     let sections = gtk4::Box::new(Orientation::Horizontal, 0);
     let selected_chat = gtk4::Stack::new();
