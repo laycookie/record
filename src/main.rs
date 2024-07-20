@@ -10,6 +10,7 @@ use ui::pages::{chat_page, login_page};
 pub mod discord;
 pub mod ui;
 
+
 pub struct LoginInfo {
     discord_token: Option<String>,
 }

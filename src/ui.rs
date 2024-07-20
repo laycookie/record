@@ -1,2 +1,4 @@
-pub mod components;
+pub mod components {
+    pub mod components;
+}
 pub mod pages;

@@ -1,11 +1,10 @@
-use std::thread;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-use futures::{StreamExt, SinkExt};
+use futures::{SinkExt, StreamExt};
 use serde_json::to_string_pretty;
-use tokio::time::{sleep, Duration};
-use crate::discord::discord_endpoints::ApiEndpoints::DiscordGateway;
-use crate::discord::websocketconfig::{discord_intents, websocketconfig::Payload};
-
+use tokio::time::{Duration, sleep};
+use crate::discord::rest_api::discord_endpoints::ApiEndpoints::DiscordGateway;
+use crate::discord::websocket::websocketconfig::discord_intents;
+use crate::discord::websocket::websocketconfig::websocketconfig::Payload;
 
 pub async fn websocket_init(token: &str) {
     let (ws_stream, _) = connect_async(DiscordGateway.get_url()).await.expect("Failed to connect");
@@ -18,6 +17,7 @@ pub async fn websocket_init(token: &str) {
     tokio::spawn(
         async move
         {
+            //TODO: Replace hardcoded milliseconds with data fetched from websocket
             println!("initializing");
             sleep(Duration::from_millis(41250 / 5)).await;
             write.send(Message::Text(heart_beat.to_string())).await.expect("failed to send heartbeat to a server");
