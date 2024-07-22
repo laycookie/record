@@ -10,7 +10,6 @@ use ui::pages::{chat_page, login_page};
 pub mod discord;
 pub mod ui;
 
-
 pub struct LoginInfo {
     discord_token: Option<String>,
 }
@@ -38,7 +37,7 @@ fn build_ui(app: &Application) {
     let stack = Stack::new();
     let stack_rc = Rc::new(stack.clone());
     match get_tokens() {
-        Some(login_info) => chat_page(stack_rc.clone(), login_info),
+        Some(login_info) => chat_page(stack_rc.clone(), login_info, None),
         None => login_page(stack_rc.clone()),
     };
 
@@ -72,4 +71,3 @@ pub fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| Runtime::new().expect("Setting up tokio runtime needs to succeed."))
 }
-
