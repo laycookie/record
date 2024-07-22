@@ -1,5 +1,11 @@
 use reqwest::{header::HeaderValue, StatusCode};
-use std::{collections::HashMap, io::ErrorKind, sync::Arc};
+use std::{
+    collections::HashMap,
+    fs::File,
+    io::{copy, ErrorKind},
+    path::Path,
+    sync::Arc,
+};
 use tokio::sync::oneshot;
 
 use crate::runtime;
@@ -39,7 +45,28 @@ impl Response {
     }
 }
 
-pub fn init_data(token: &String) -> Result<i32, std::io::Error> {
+pub async fn download_image(url: String, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    // Send HTTP GET request to the specified URL
+    let req = client.get(url);
+    let res = req.send().await?;
+
+    // Check if the request was successful
+    if !res.status().is_success() {
+        return Err(format!("Failed to download image: HTTP {}", res.status()).into());
+    }
+
+    // Create a file at the specified path
+    println!("{:#?}", path);
+    let mut file = File::create(path).unwrap();
+
+    // Copy the content from the response to the file
+    copy(&mut res.bytes().await?.as_ref(), &mut file)?;
+
+    Ok(())
+}
+
+pub fn init_data(token: &String) -> Result<serde_json::Value, std::io::Error> {
     let token_arc = Arc::new(token.to_owned());
 
     let (tx, rx) = oneshot::channel();
@@ -51,9 +78,8 @@ pub fn init_data(token: &String) -> Result<i32, std::io::Error> {
             .await
             .expect("Discord API failed to process request to validate the token");
 
-        println!("test");
         if res.is_sucessful() {
-            tx.send(Ok(200)).unwrap();
+            tx.send(Ok(res.body)).unwrap();
         } else {
             println!("{:#?}", res.body);
             tx.send(Err(std::io::Error::new(ErrorKind::Other, "stuff")))
@@ -65,5 +91,5 @@ pub fn init_data(token: &String) -> Result<i32, std::io::Error> {
 }
 
 struct BasicData {
-    friends: Vec<u64>,
+    friends: Vec<serde_json::Value>,
 }

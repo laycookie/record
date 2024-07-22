@@ -1,14 +1,11 @@
-use gtk4::glib::MainContext;
 use gtk4::{prelude::*, Button, Entry, Image, Label, Orientation, Stack};
-use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::{fs::File, io::Write, rc::Rc};
-use tokio::sync::oneshot;
 
 use super::components::components::{user_button, ChatData, DiscordUser};
 
-use crate::discord::rest_api::utils::{download_image, init_data};
+use crate::discord::rest_api::utils::init_data;
 use crate::discord::websocket;
 use crate::{runtime, LoginInfo};
 
@@ -29,13 +26,14 @@ pub fn login_page(parent_stack: Rc<Stack>) {
             return;
         }
 
-        let data = match init_data(&entered_token) {
+        let _data = match init_data(&entered_token) {
             Ok(json) => json,
-            Err(e) => {
-                eprintln!("Error: {}", e);
-                return;
-            }
+            Err(_) => return,
         };
+        if init_data(&entered_token).is_err() {
+            eprintln!("Token invalide");
+            return;
+        }
 
         let mut data_file = File::create("./public/loginInfo").expect("creation failed");
         data_file
@@ -46,7 +44,7 @@ pub fn login_page(parent_stack: Rc<Stack>) {
             discord_token: Some(entered_token),
         };
 
-        chat_page(parent_stack.clone(), user, Some(data));
+        chat_page(parent_stack.clone(), user);
         parent_stack.set_visible_child_name("chats");
         parent_stack.remove(&login);
     });
@@ -56,7 +54,7 @@ pub struct MainPanel {
     stack: gtk4::Stack,
 
     friend_list: gtk4::Box,
-    friends: HashMap<String, Button>,
+    friends: Vec<Button>,
 
     chat_data: ChatData,
 }
@@ -84,7 +82,7 @@ impl MainPanel {
         Self {
             stack,
             friend_list,
-            friends: HashMap::new(),
+            friends: vec![],
             chat_data: ChatData { username, pfp },
         }
     }
@@ -92,86 +90,41 @@ impl MainPanel {
     fn push_friend(&mut self, user: DiscordUser) {
         let user_box = gtk4::Box::new(Orientation::Horizontal, 5);
 
-        let user_id = user.id.to_owned();
         let username = Label::new(Some(&user.username));
-
-        let pfp = Image::from_file(&user.pfp);
+        let image_path = user.pfp;
+        let pfp = Image::from_file(image_path);
 
         user_box.append(&pfp);
         user_box.append(&username);
 
         let button = Button::new();
-
-        button.connect_clicked({
-            let chat_data = self.chat_data.clone();
-            let temp = self.stack.clone();
-            move |_| {
-                chat_data.set_current_chat(&user);
-                temp.set_visible_child_name("chat");
-            }
+        let temp = self.stack.clone();
+        button.connect_clicked(move |_| {
+            temp.set_visible_child_name("chat");
         });
         button.set_child(Some(&user_box));
 
         self.friend_list.append(&button);
-        self.friends.insert(user_id, button);
+        self.friends.push(button);
     }
 }
 
-pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo, info: Option<serde_json::Value>) {
+pub fn chat_page(parent_stack: Rc<Stack>, _token_data: LoginInfo) {
     runtime().spawn(async move {
         // websocket::websocket::websocket_init(&token_data.discord_token.unwrap()).await;
     });
-
-    let info = match info {
-        Some(i) => i,
-        None => init_data(&token_data.discord_token.unwrap()).unwrap(),
-    };
-    let friend_list = info.as_array().unwrap();
-
     let sections = gtk4::Box::new(Orientation::Horizontal, 0);
-    // === Main Panel ===
+
     let mut main_panel = MainPanel::new();
-
-    for f in friend_list {
-        let username = f
-            .get("user")
-            .unwrap()
-            .get("username")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-        let id = f.get("id").unwrap().as_str().unwrap().to_string();
-
-        let pfp_id = f
-            .get("user")
-            .unwrap()
-            .get("avatar")
-            .unwrap()
-            .as_str()
-            .unwrap();
-
-        let url = format!(
-            "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-            id, pfp_id
-        );
-        let pfp = Path::new(&format!("public/Contacts/pfp/{}", pfp_id)).to_owned();
-
-        if !pfp.exists() {
-            let path = pfp.clone();
-            runtime().spawn({
-                async move {
-                    download_image(url, &path).await.unwrap();
-                }
-            });
-        }
-        main_panel.push_friend(DiscordUser { username, pfp, id });
-    }
+    main_panel.push_friend(DiscordUser {
+        username: "userr".to_string(),
+        pfp: Path::new("public/assets/PlaceHolderPfp.jpg").to_owned(),
+        id: "testing".to_string(),
+    });
 
     // === Sidebar ===
     let sidebar = gtk4::Box::new(Orientation::Vertical, 20);
 
-    // open friend list
     {
         let menue = gtk4::Box::new(Orientation::Vertical, 5);
         let friends = Button::new();
@@ -185,24 +138,20 @@ pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo, info: Option<se
         menue.append(&friends);
         sidebar.append(&menue);
     }
-    // DM list
+
     {
         let scroll = gtk4::ScrolledWindow::new();
         scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
 
         let contact_list = gtk4::Box::new(Orientation::Vertical, 5);
+        let chat_data_rc = Rc::new(Mutex::new(main_panel.chat_data));
         scroll.set_child(Some(&contact_list));
-
         for _ in 0..20 {
-            user_button(
-                &contact_list,
-                &main_panel.stack,
-                &main_panel.chat_data,
-                "userid".to_string(),
-            );
+            user_button(&contact_list, &main_panel.stack, chat_data_rc.clone());
         }
         sidebar.append(&scroll);
     }
+
     // ===
     sections.append(&sidebar);
     sections.append(&main_panel.stack);

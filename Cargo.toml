@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 gtk4 = "0.9.0"
-reqwest = { version = "0.12.5", features = ["json"] }
+reqwest = { version = "0.12.5", features = ["json", "blocking"] }
 tokio = { version = "1.0.1", features = ["full", "rt-multi-thread"] }
 async-channel = "2.3.1"
 serde = { version = "1.0.204", features = ["derive"] }
