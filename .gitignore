@@ -18,4 +18,4 @@ Cargo.lock
 
 # stores user data
 public/loginInfo
-public/Contacts/*
+public/Contacts/pfp/*
