@@ -2,13 +2,14 @@ use std::{collections::HashMap, error::Error, io::ErrorKind};
 
 use reqwest::{header::HeaderValue, StatusCode};
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{json, Value};
+
+pub const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg/?v=10&encoding=json";
 
 pub enum ApiEndpoints {
     FriendList,
-    DiscordGateway,
-    GetChannels(Option<String>), // user ID
-    GetMessages(String, String), // Channel ID, Message Limit
+    GetChannels(Option<String>),              // user ID
+    GetMessages(String, Option<String>, u32), // Channel ID, Load before message, Message Limit
 }
 
 impl ApiEndpoints {
@@ -16,10 +17,17 @@ impl ApiEndpoints {
         match self {
             Self::FriendList => "https://discord.com/api/v9/users/@me/relationships".into(),
             Self::GetChannels(_) => "https://discord.com/api/v10/users/@me/channels".into(),
-            Self::GetMessages(channel_id, message_limit) => format!(
-                "https://discord.com/api/v9/channels/{}/messages?limit={}",
-                channel_id, message_limit
-            ),
+            Self::GetMessages(channel_id, before_message, message_limit) => {
+                let before = match before_message {
+                    Some(before_message) => format!("before={}&", before_message),
+                    None => "".into(),
+                };
+
+                format!(
+                    "https://discord.com/api/v9/channels/{}/messages?{}limit={}",
+                    channel_id, before, message_limit
+                )
+            }
         }
     }
 
@@ -27,21 +35,21 @@ impl ApiEndpoints {
         let client = reqwest::Client::new();
         let mut request = client.get(self.get_url());
 
+        match self {
+            ApiEndpoints::GetChannels(user_id) => {
+                if let Some(user_id) = user_id {
+                    request = client.post(self.get_url());
+                    request =
+                        request.json(&format!("{{\"recipients\":[\"{}\"]}}", user_id.clone()));
+                }
+            }
+            ApiEndpoints::FriendList => {}
+            _ => {}
+        }
+
         for (key, value) in headers {
             request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
         }
-
-        // match self {
-        //     ApiEndpoints::GetChannels(user_id) => {
-        //         if let Some(user_id) = user_id {
-        //             println!("{{\"recipients\":[\"{}\"]}}", user_id.clone());
-        //             request = request.body(format!("{{\"recipients\":[\"{}\"]}}", user_id.clone()));
-        //             println!("test");
-        //         }
-        //     }
-        //     ApiEndpoints::FriendList => {}
-        //     _ => {}
-        // }
 
         let response = request.send().await.unwrap();
         let response_text: String = response.text().await.unwrap();
@@ -68,6 +76,7 @@ impl ApiEndpoints {
         }
 
         let response_text: String = response.text().await?;
+        // println!("{:#?}", response_text);
 
         Ok(match self {
             Self::FriendList => {
@@ -80,7 +89,6 @@ impl ApiEndpoints {
 
                 ApiResponse::Friends(a)
             }
-            Self::DiscordGateway => todo!(),
             Self::GetChannels(_) => {
                 let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
                 let a = a.as_array().unwrap();
@@ -90,7 +98,16 @@ impl ApiEndpoints {
                     .collect();
                 ApiResponse::Channels(a)
             }
-            Self::GetMessages(_, _) => todo!(),
+            Self::GetMessages(_, _, _) => {
+                let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
+                let a = a.as_array().unwrap();
+                println!("{:#?}", a);
+                let a: Vec<Message> = a
+                    .iter()
+                    .map(|e| serde_json::from_value(e.clone()).unwrap())
+                    .collect();
+                ApiResponse::Messeges(a)
+            }
         })
     }
 }
@@ -128,6 +145,52 @@ trait ApiRes: Sized + for<'a> Deserialize<'a> {
 pub enum ApiResponse {
     Friends(Vec<Friend>),
     Channels(Vec<Channel>),
+    Messeges(Vec<Message>),
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Message {
+    pub attachments: Vec<String>,
+    pub author: User,
+    pub channel_id: String,
+    pub components: Vec<String>,
+    pub content: String,
+    pub edited_timestamp: Option<String>,
+    pub embeds: Vec<u32>,
+    pub flags: u32,
+    pub id: String,
+    pub mention_everyone: bool,
+    // pub mention_roles: Vec<String>,
+    // pub mentions: Vec<String>,
+    pub pinned: bool,
+    pub reactions: Option<Vec<Reaction>>,
+    pub timestamp: String,
+    pub tts: bool,
+    // type: u32,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Reaction {
+    pub burst_colors: Vec<String>,
+    pub burst_count: u32,
+    pub burst_me: bool,
+    pub count: u32,
+    pub count_details: CountDetails,
+    pub emoji: Emoji,
+    pub me: bool,
+    pub me_burst: bool,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Emoji {
+    pub id: Option<String>,
+    pub name: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct CountDetails {
+    pub burst: u32,
+    pub normal: u32,
 }
 
 #[derive(Deserialize, Debug)]
@@ -141,7 +204,7 @@ pub struct Friend {
 
 #[derive(Deserialize, Debug)]
 pub struct User {
-    pub avatar: String,
+    pub avatar: Option<String>,
     pub avatar_decoration_data: Option<String>,
     pub clan: Option<String>,
     pub discriminator: String,
