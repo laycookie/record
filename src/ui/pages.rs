@@ -1,172 +1,94 @@
-use gtk4::glib::MainContext;
-use gtk4::{prelude::*, Button, Entry, Image, Label, Orientation, Stack};
-use std::collections::HashMap;
+use gtk4::{prelude::*, Button, Entry, Orientation, Stack};
+use std::cell::RefCell;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
-use std::{fs::File, io::Write, rc::Rc};
-use tokio::sync::oneshot;
+use std::rc::Rc;
+use std::{fs::File, io::Write};
 
-use super::components::components::{user_button, ChatData, DiscordUser};
+use super::components::components::{Channels, Chat, FriendList};
 
+use crate::discord::rest_api::discord_endpoints::ApiResponse;
 use crate::discord::rest_api::utils::{download_image, init_data};
 use crate::discord::websocket;
 use crate::{runtime, LoginInfo};
 
-pub fn login_page(parent_stack: Rc<Stack>) {
+pub fn login_page(parent_stack: Stack) {
     let login = gtk4::Box::new(Orientation::Vertical, 5);
     let token_entry = Entry::new();
     token_entry.set_placeholder_text(Some("Place token here."));
     login.append(&token_entry);
 
-    let submit_token = Button::new();
-    submit_token.set_label("Submit");
-    login.append(&submit_token);
+    let submit = Button::new();
+    submit.set_label("Submit");
+    login.append(&submit);
     parent_stack.add_child(&login);
 
-    submit_token.connect_clicked(move |_| {
-        let entered_token = String::from(token_entry.text());
-        if entered_token.is_empty() {
-            return;
-        }
-
-        let data = match init_data(&entered_token) {
-            Ok(json) => json,
-            Err(e) => {
-                eprintln!("Error: {}", e);
+    let submit_token = {
+        let token_entry = token_entry.clone();
+        move || {
+            let entered_token = String::from(token_entry.text());
+            if entered_token.is_empty() {
                 return;
             }
-        };
 
-        let mut data_file = File::create("./public/loginInfo").expect("creation failed");
-        data_file
-            .write_all(entered_token.as_bytes())
-            .expect("Write Failed");
+            let data = match init_data(&entered_token) {
+                Ok(json) => json,
+                Err(e) => {
+                    eprintln!("Error: {}", e);
+                    return;
+                }
+            };
 
-        let user = LoginInfo {
-            discord_token: Some(entered_token),
-        };
+            let mut data_file = File::create("./public/loginInfo").expect("creation failed");
+            data_file
+                .write_all(entered_token.as_bytes())
+                .expect("Write Failed");
 
-        chat_page(parent_stack.clone(), user, Some(data));
-        parent_stack.set_visible_child_name("chats");
-        parent_stack.remove(&login);
+            let user = LoginInfo {
+                discord_token: Some(entered_token),
+            };
+
+            chat_page(parent_stack.clone(), user, Some(data));
+            parent_stack.set_visible_child_name("chats");
+            parent_stack.remove(&login);
+        }
+    };
+
+    submit.connect_clicked({
+        let submit_token = submit_token.clone();
+        move |_| submit_token()
+    });
+    token_entry.connect_activate({
+        let submit_token = submit_token.clone();
+        move |_| submit_token()
     });
 }
 
-pub struct MainPanel {
-    stack: gtk4::Stack,
-
-    friend_list: gtk4::Box,
-    friends: HashMap<String, Button>,
-
-    chat_data: ChatData,
-}
-
-impl MainPanel {
-    fn new() -> Self {
-        let stack = gtk4::Stack::new();
-
-        let friend_list = gtk4::Box::new(Orientation::Vertical, 4);
-        let chat = gtk4::Box::new(Orientation::Vertical, 4);
-
-        let pfp = Image::new();
-        let username = Label::new(None);
-        let text_field = Entry::new();
-
-        // Chat layout
-        chat.append(&pfp);
-        chat.append(&username);
-        chat.append(&text_field);
-        // ===
-
-        stack.add_named(&friend_list, Some("friend_list"));
-        stack.add_named(&chat, Some("chat"));
-
-        Self {
-            stack,
-            friend_list,
-            friends: HashMap::new(),
-            chat_data: ChatData { username, pfp },
+pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<ApiResponse>>) {
+    runtime().spawn({
+        let discord_token = token_data.discord_token.clone();
+        async move {
+            // websocket::websocket::websocket_init(&discord_token.unwrap()).await;
         }
-    }
-
-    fn push_friend(&mut self, user: DiscordUser) {
-        let user_box = gtk4::Box::new(Orientation::Horizontal, 5);
-
-        let user_id = user.id.to_owned();
-        let username = Label::new(Some(&user.username));
-
-        let pfp = Image::from_file(&user.pfp);
-
-        user_box.append(&pfp);
-        user_box.append(&username);
-
-        let button = Button::new();
-
-        button.connect_clicked({
-            let chat_data = self.chat_data.clone();
-            let temp = self.stack.clone();
-            move |_| {
-                chat_data.set_current_chat(&user);
-                temp.set_visible_child_name("chat");
-            }
-        });
-        button.set_child(Some(&user_box));
-
-        self.friend_list.append(&button);
-        self.friends.insert(user_id, button);
-    }
-}
-
-pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo, info: Option<serde_json::Value>) {
-    runtime().spawn(async move {
-        // websocket::websocket::websocket_init(&token_data.discord_token.unwrap()).await;
     });
 
     let info = match info {
         Some(i) => i,
         None => init_data(&token_data.discord_token.unwrap()).unwrap(),
     };
-    let friend_list = info.as_array().unwrap();
+
+    // let friend_list = info.as_array().unwrap();
 
     let sections = gtk4::Box::new(Orientation::Horizontal, 0);
+
     // === Main Panel ===
-    let mut main_panel = MainPanel::new();
+    let chat_area = Stack::new();
+    chat_area.set_hexpand(true);
 
-    for f in friend_list {
-        let username = f
-            .get("user")
-            .unwrap()
-            .get("username")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .to_string();
-        let id = f.get("id").unwrap().as_str().unwrap().to_string();
+    let chat = Rc::new(RefCell::new(Chat::new()));
+    let mut friend_list = FriendList::new(chat.clone(), chat_area.clone());
 
-        let pfp_id = f
-            .get("user")
-            .unwrap()
-            .get("avatar")
-            .unwrap()
-            .as_str()
-            .unwrap();
-
-        let url = format!(
-            "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-            id, pfp_id
-        );
-        let pfp = Path::new(&format!("public/Contacts/pfp/{}", pfp_id)).to_owned();
-
-        if !pfp.exists() {
-            let path = pfp.clone();
-            runtime().spawn({
-                async move {
-                    download_image(url, &path).await.unwrap();
-                }
-            });
-        }
-        main_panel.push_friend(DiscordUser { username, pfp, id });
-    }
+    chat_area.add_child(&friend_list.friend_list_element);
+    chat_area.add_child(&(*chat).borrow().chat_element);
 
     // === Sidebar ===
     let sidebar = gtk4::Box::new(Orientation::Vertical, 20);
@@ -177,36 +99,190 @@ pub fn chat_page(parent_stack: Rc<Stack>, token_data: LoginInfo, info: Option<se
         let friends = Button::new();
         friends.set_label("Friends");
         friends.connect_clicked({
-            let stack = main_panel.stack.clone();
+            let stack = chat_area.clone();
+            let friend_list = friend_list.friend_list_element.clone();
             move |_| {
-                stack.set_visible_child_name("friend_list");
+                stack.set_visible_child(&friend_list);
             }
         });
         menue.append(&friends);
         sidebar.append(&menue);
     }
     // DM list
-    {
-        let scroll = gtk4::ScrolledWindow::new();
-        scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    let mut test = Channels::new(chat, chat_area.clone());
+    let scroll = gtk4::ScrolledWindow::new();
+    scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    scroll.set_vexpand(true);
+    scroll.set_child(Some(&test.channels_element));
 
-        let contact_list = gtk4::Box::new(Orientation::Vertical, 5);
-        scroll.set_child(Some(&contact_list));
-
-        for _ in 0..20 {
-            user_button(
-                &contact_list,
-                &main_panel.stack,
-                &main_panel.chat_data,
-                "userid".to_string(),
-            );
-        }
-        sidebar.append(&scroll);
-    }
+    sidebar.append(&scroll);
     // ===
     sections.append(&sidebar);
-    sections.append(&main_panel.stack);
-    // sections.append(&selected_chat);
+    sections.append(&chat_area);
+    //
 
+    // === INITING DATA FROM SERVER
+
+    for i in info {
+        match i {
+            ApiResponse::Friends(fs) => {
+                for f in fs {
+                    let user_id = f.user.id;
+                    let username = f.user.username;
+                    let pfp_id = f.user.avatar;
+
+                    let url = format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                        user_id, pfp_id
+                    );
+                    let user_path =
+                        Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
+                    let pfp = user_path.join(&pfp_id);
+
+                    if !pfp.exists() {
+                        runtime().spawn({
+                            async move {
+                                download_image(url, &user_path, pfp_id).await.unwrap();
+                            }
+                        });
+                    }
+
+                    friend_list.add_friend(user_id, username, pfp);
+                }
+            }
+            ApiResponse::Channels(cs) => {
+                for c in cs {
+                    let recipient = c.recipients.last().unwrap();
+                    let channel_id = c.id.clone();
+
+                    let username = match c.name {
+                        Some(name) => name,
+                        None => recipient.username.clone(),
+                    };
+
+                    let url;
+                    let data_path;
+                    let pfp_id;
+                    match c.icon {
+                        // Group
+                        Some(pfp) => {
+                            pfp_id = pfp;
+                            url = format!(
+                                "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
+                                c.id, pfp_id
+                            );
+                            data_path =
+                                Path::new(&format!("public/Discord/Channels/{}", channel_id))
+                                    .to_owned();
+                        }
+                        // User
+                        None => {
+                            pfp_id = recipient.avatar.clone();
+                            url = format!(
+                                "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                                recipient.id, pfp_id
+                            );
+                            data_path =
+                                Path::new(&format!("public/Discord/Users/{}", recipient.id))
+                                    .to_owned();
+                        }
+                    }
+                    let pfp = data_path.join(&pfp_id);
+
+                    if !pfp.exists() {
+                        runtime().spawn({
+                            async move {
+                                download_image(url, &data_path, pfp_id).await.unwrap();
+                            }
+                        });
+                    }
+
+                    test.add_channel(channel_id, username, pfp)
+                }
+            }
+        }
+    }
     parent_stack.add_named(&sections, Some("chats"));
+}
+
+fn test(info: Vec<ApiResponse>) {
+    for i in info {
+        match i {
+            ApiResponse::Friends(fs) => {
+                for f in fs {
+                    let user_id = f.user.id;
+                    let username = f.user.username;
+                    let pfp_id = f.user.avatar;
+
+                    let url = format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                        user_id, pfp_id
+                    );
+                    let user_path =
+                        Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
+                    let pfp = user_path.join(&pfp_id);
+
+                    if !pfp.exists() {
+                        runtime().spawn({
+                            async move {
+                                download_image(url, &user_path, pfp_id).await.unwrap();
+                            }
+                        });
+                    }
+
+                    friend_list.add_friend(user_id, username, pfp);
+                }
+            }
+            ApiResponse::Channels(cs) => {
+                for c in cs {
+                    let recipient = c.recipients.last().unwrap();
+                    let channel_id = c.id.clone();
+
+                    let username = match c.name {
+                        Some(name) => name,
+                        None => recipient.username.clone(),
+                    };
+
+                    let url;
+                    let data_path;
+                    let pfp_id;
+                    match c.icon {
+                        // Group
+                        Some(pfp) => {
+                            pfp_id = pfp;
+                            url = format!(
+                                "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
+                                c.id, pfp_id
+                            );
+                            data_path =
+                                Path::new(&format!("public/Discord/Channels/{}", channel_id))
+                                    .to_owned();
+                        }
+                        // User
+                        None => {
+                            pfp_id = recipient.avatar.clone();
+                            url = format!(
+                                "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                                recipient.id, pfp_id
+                            );
+                            data_path =
+                                Path::new(&format!("public/Discord/Users/{}", recipient.id))
+                                    .to_owned();
+                        }
+                    }
+                    let pfp = data_path.join(&pfp_id);
+
+                    if !pfp.exists() {
+                        runtime().spawn({
+                            async move {
+                                download_image(url, &data_path, pfp_id).await.unwrap();
+                            }
+                        });
+                    }
+
+                    test.add_channel(channel_id, username, pfp)
+                }
+            }
+        }
+    }
 }

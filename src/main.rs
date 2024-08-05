@@ -1,7 +1,9 @@
-use gtk4::prelude::*;
-use gtk4::{glib, Application, ApplicationWindow, Stack};
+use gtk4::gio::Settings;
+use gtk4::{gdk, gio, glib, Application, ApplicationWindow, Stack};
+use gtk4::{prelude::*, CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
 use std::fs::File;
 use std::io::Read;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
@@ -14,14 +16,29 @@ pub struct LoginInfo {
     discord_token: Option<String>,
 }
 
-const APP_ID: &str = "org.gtk_rs.record";
+const APP_ID: &str = "laycookie.record";
 
 fn main() -> glib::ExitCode {
     // Create a new application
     let app = Application::builder().application_id(APP_ID).build();
 
+    app.connect_activate(|app| {
+        // Link css
+        let css = CssProvider::new();
+
+        let path = Path::new("src/ui/theme/main.css");
+        css.load_from_path(path);
+
+        gtk4::style_context_add_provider_for_display(
+            &gdk::Display::default().unwrap(),
+            &css,
+            STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+        build_ui(app);
+    });
+
     // Connect to "activate" signal of `app`
-    app.connect_activate(build_ui);
+    // app.connect_activate(build_ui);
 
     // Run the application
     app.run()
@@ -35,14 +52,12 @@ fn build_ui(app: &Application) {
         .build();
 
     let stack = Stack::new();
-    let stack_rc = Rc::new(stack.clone());
     match get_tokens() {
-        Some(login_info) => chat_page(stack_rc.clone(), login_info, None),
-        None => login_page(stack_rc.clone()),
+        Some(login_info) => chat_page(stack.clone(), login_info, None),
+        None => login_page(stack.clone()),
     };
 
     window.set_child(Some(&stack));
-
     // Present window
     window.present();
 }
