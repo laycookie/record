@@ -1,0 +1,15 @@
+.main-panel {
+	margin-right: 16px;
+	margin-left: 16px;
+}
+
+.message {
+	color: #fff;
+	padding: 4px 8px;
+	border-radius: 9999px;
+	background-color: #333;
+}
+
+.user-message {
+	background-color: #6666cc;
+}

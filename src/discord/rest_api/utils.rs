@@ -1,51 +1,22 @@
 use reqwest::{header::HeaderValue, StatusCode};
 use std::{
     collections::HashMap,
-    fs::File,
+    fs::{self, File},
     io::{copy, ErrorKind},
     path::Path,
     sync::Arc,
 };
 use tokio::sync::oneshot;
 
-use crate::runtime;
+use crate::{discord::rest_api::discord_endpoints::Channel, runtime};
 
-use super::discord_endpoints::ApiEndpoints;
+use super::discord_endpoints::{ApiEndpoints, ApiResponse};
 
-pub async fn discord_api_call(
-    endpoint: ApiEndpoints,
-    headers: HashMap<&str, String>,
-) -> Result<Response, Box<dyn std::error::Error>> {
-    let client = reqwest::Client::new();
-
-    let mut request = client.get(endpoint.get_url());
-    for (key, value) in headers {
-        request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
-    }
-
-    let response = request.send().await?;
-    let response_status = response.status();
-    let response_text: String = response.text().await?;
-    let response_text: serde_json::Value = serde_json::from_str(response_text.as_str())?;
-
-    Ok(Response {
-        header: response_status,
-        body: response_text,
-    })
-}
-
-pub struct Response {
-    header: StatusCode,
-    body: serde_json::Value,
-}
-
-impl Response {
-    pub fn is_sucessful(&self) -> bool {
-        self.header == StatusCode::OK
-    }
-}
-
-pub async fn download_image(url: String, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn download_image(
+    url: String,
+    path: &Path,
+    image_name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
     // Send HTTP GET request to the specified URL
     let req = client.get(url);
@@ -58,7 +29,13 @@ pub async fn download_image(url: String, path: &Path) -> Result<(), Box<dyn std:
 
     // Create a file at the specified path
     println!("{:#?}", path);
-    let mut file = File::create(path).unwrap();
+    if !path.exists() {
+        match fs::create_dir_all(path) {
+            Ok(_) => println!("Directory created successfully."),
+            Err(e) => println!("Failed to create directory: {}", e),
+        }
+    }
+    let mut file = File::create(path.join(image_name)).unwrap();
 
     // Copy the content from the response to the file
     copy(&mut res.bytes().await?.as_ref(), &mut file)?;
@@ -66,7 +43,7 @@ pub async fn download_image(url: String, path: &Path) -> Result<(), Box<dyn std:
     Ok(())
 }
 
-pub fn init_data(token: &String) -> Result<serde_json::Value, std::io::Error> {
+pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, std::io::Error> {
     let token_arc = Arc::new(token.to_owned());
 
     let (tx, rx) = oneshot::channel();
@@ -74,22 +51,24 @@ pub fn init_data(token: &String) -> Result<serde_json::Value, std::io::Error> {
     runtime().spawn(async move {
         let mut headers = HashMap::new();
         headers.insert("Authorization", token_arc.to_string());
-        let res = discord_api_call(ApiEndpoints::FriendList, headers)
-            .await
-            .expect("Discord API failed to process request to validate the token");
 
-        if res.is_sucessful() {
-            tx.send(Ok(res.body)).unwrap();
-        } else {
-            println!("{:#?}", res.body);
-            tx.send(Err(std::io::Error::new(ErrorKind::Other, "stuff")))
-                .unwrap();
-        }
+        let channels = ApiEndpoints::GetChannels(None)
+            .call(headers.clone())
+            .await
+            .unwrap();
+
+        let friends = ApiEndpoints::FriendList
+            .call(headers.clone())
+            .await
+            .unwrap();
+
+        tx.send(vec![channels, friends]).unwrap();
     });
 
-    rx.blocking_recv().unwrap()
+    Ok(rx.blocking_recv().unwrap())
 }
 
 struct BasicData {
     friends: Vec<serde_json::Value>,
+    channels: Vec<Channel>,
 }
