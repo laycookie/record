@@ -52,13 +52,6 @@ pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, std::io::Error> {
         let mut headers = HashMap::new();
         headers.insert("Authorization", token_arc.to_string());
 
-        // let _open_channel = ApiEndpoints::GetChannels(Some("280418177702297605".into()))
-        //     .get_req(headers.clone())
-        //     .await;
-        // ApiEndpoints::GetMessages("", Some("1269922738424905738".into()), 50)
-        //     .call(headers.clone())
-        //     .await;
-
         let channels = ApiEndpoints::GetChannels(None)
             .call(headers.clone())
             .await
