@@ -31,39 +31,27 @@ impl ApiEndpoints {
         }
     }
 
-    pub async fn get_req(&self, headers: HashMap<&str, String>) {
-        let client = reqwest::Client::new();
-        let mut request = client.get(self.get_url());
-
-        match self {
-            ApiEndpoints::GetChannels(user_id) => {
-                if let Some(user_id) = user_id {
-                    request = client.post(self.get_url());
-                    request =
-                        request.json(&format!("{{\"recipients\":[\"{}\"]}}", user_id.clone()));
-                }
-            }
-            ApiEndpoints::FriendList => {}
-            _ => {}
-        }
-
-        for (key, value) in headers {
-            request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
-        }
-
-        let response = request.send().await.unwrap();
-        let response_text: String = response.text().await.unwrap();
-
-        println!("{:#?}", response_text);
-    }
-
     pub async fn call(
         &self,
         headers: HashMap<&str, String>,
     ) -> Result<ApiResponse, Box<dyn Error>> {
         let client = reqwest::Client::new();
 
-        let mut request = client.get(self.get_url());
+        let mut request = match self {
+            ApiEndpoints::FriendList => client.get(self.get_url()),
+            ApiEndpoints::GetChannels(user_id) => {
+                if let Some(user_id) = user_id {
+                    let request = client.post(self.get_url());
+                    let mut json = HashMap::new();
+                    json.insert("recipients", [user_id.clone()]);
+                    request.json(&json)
+                } else {
+                    client.get(self.get_url())
+                }
+            }
+            ApiEndpoints::GetMessages(_, _, _) => client.get(self.get_url()),
+        };
+
         for (key, value) in headers {
             request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
         }
