@@ -1,6 +1,90 @@
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
-
+use std::path::Path;
 use gtk4::{prelude::*, Align, Button, Entry, Image, Label, Orientation, Stack, Widget};
+use tokio::sync::oneshot;
+use crate::discord::rest_api::discord_endpoints;
+use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, Friend};
+use crate::discord::rest_api::utils::download_image;
+use crate::runtime;
+
+
+pub trait Component<T> {
+    fn test(&mut self, info: Vec<T>);
+}
+impl Component<discord_endpoints::Channel> for Channels {
+    fn test(&mut self, info: Vec<discord_endpoints::Channel>) {
+        for c in info {
+            let recipient = c.recipients.last().unwrap();
+            let channel_id = c.id.clone();
+
+            let username = match c.name {
+                Some(name) => name,
+                None => recipient.username.clone(),
+            };
+
+            let (url, data_path, pfp_id) = match c.icon {
+                Some(pfp) => (
+                    format!(
+                        "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
+                        c.id, pfp
+                    ),
+                    Path::new(&format!("public/Discord/Channels/{}", channel_id))
+                        .to_owned(),
+                    pfp,
+                ),
+                None => (
+                    format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                        recipient.id, recipient.avatar.clone()
+                    ),
+                    Path::new(&format!("public/Discord/Users/{}", recipient.id))
+                        .to_owned(),
+                    recipient.avatar.clone(),
+                ),
+            };
+
+            let pfp = data_path.join(&pfp_id);
+
+            if !pfp.exists() {
+                runtime().spawn({
+                    async move {
+                        download_image(url, &data_path, pfp_id).await.unwrap();
+                    }
+                });
+            }
+
+            self.add_channel(channel_id, username, pfp);
+        }
+    }
+}
+
+impl Component<Friend> for FriendList {
+    fn test(&mut self, friends: Vec<Friend>) {
+        for f in friends {
+            let user_id = f.user.id;
+            let username = f.user.username;
+            let pfp_id = f.user.avatar.unwrap();
+
+            let url = format!(
+                "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                user_id, pfp_id
+            );
+            let user_path =
+                Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
+            let pfp = user_path.join(&pfp_id);
+
+            if !pfp.exists() {
+                runtime().spawn({
+                    async move {
+                        download_image(url, &user_path, pfp_id).await.unwrap();
+                    }
+                });
+            }
+            self.add_friend(user_id, username, pfp);
+        }
+    }
+}
+
 
 struct Message {
     sender_other_then_client: Option<String>,
@@ -207,7 +291,14 @@ impl Chat {
         self.chat_icon.set_from_file(Some(icon_path));
         // Remove old messages
         self.clear_messages();
-        // TODO: Add new messeges
+        // TODO: Add new messages
+        // let (tx, rx) = oneshot::channel();
+        // runtime().spawn(async move
+        // {
+        //     let messages = ApiEndpoints::GetMessages(channel_id, None, 50).call(todo!()).await.unwrap();
+        //     tx.send(messages).unwrap();
+        // });
+        // let message = rx.blocking_recv().unwrap();
     }
 
     fn open_chat(&mut self, name: String, icon_path: PathBuf, channel_id: String) {
