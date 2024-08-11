@@ -4,7 +4,7 @@ use std::path::Path;
 use std::rc::Rc;
 use std::{fs::File, io::Write};
 
-use super::components::components::{Channels, Chat, FriendList};
+use super::components::components::{Channels, Chat, Component, FriendList};
 
 use crate::discord::rest_api::discord_endpoints::ApiResponse;
 use crate::discord::rest_api::utils::{download_image, init_data};
@@ -109,182 +109,32 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
         sidebar.append(&menue);
     }
     // DM list
-    let mut test = Channels::new(chat, chat_area.clone());
+    let mut channel_list = Channels::new(chat, chat_area.clone());
     let scroll = gtk4::ScrolledWindow::new();
     scroll.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
     scroll.set_vexpand(true);
-    scroll.set_child(Some(&test.channels_element));
+    scroll.set_child(Some(&channel_list.channels_element));
 
     sidebar.append(&scroll);
     // ===
     sections.append(&sidebar);
     sections.append(&chat_area);
-    //
 
     // === INITING DATA FROM SERVER
+
 
     for i in info {
         match i {
             ApiResponse::Friends(fs) => {
-                for f in fs {
-                    let user_id = f.user.id;
-                    let username = f.user.username;
-                    let pfp_id = f.user.avatar.unwrap(); // The only way this can be None is if one
-                                                         // of your friends is yourself.
-
-                    let url = format!(
-                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-                        user_id, pfp_id
-                    );
-                    let user_path =
-                        Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
-                    let pfp = user_path.join(&pfp_id);
-
-                    if !pfp.exists() {
-                        runtime().spawn({
-                            async move {
-                                download_image(url, &user_path, pfp_id).await.unwrap();
-                            }
-                        });
-                    }
-
-                    friend_list.add_friend(user_id, username, pfp);
-                }
+                friend_list.test(fs);
             }
             ApiResponse::Channels(cs) => {
-                for c in cs {
-                    let recipient = c.recipients.last().unwrap();
-                    let channel_id = c.id.clone();
-
-                    let username = match c.name {
-                        Some(name) => name,
-                        None => recipient.username.clone(),
-                    };
-
-                    let url;
-                    let data_path;
-                    let pfp_id;
-                    match c.icon {
-                        // Group
-                        Some(pfp) => {
-                            pfp_id = pfp;
-                            url = format!(
-                                "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
-                                c.id, pfp_id
-                            );
-                            data_path =
-                                Path::new(&format!("public/Discord/Channels/{}", channel_id))
-                                    .to_owned();
-                        }
-                        // User
-                        None => {
-                            pfp_id = recipient.avatar.clone();
-                            url = format!(
-                                "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-                                recipient.id, pfp_id
-                            );
-                            data_path =
-                                Path::new(&format!("public/Discord/Users/{}", recipient.id))
-                                    .to_owned();
-                        }
-                    }
-                    let pfp = data_path.join(&pfp_id);
-
-                    if !pfp.exists() {
-                        runtime().spawn({
-                            async move {
-                                download_image(url, &data_path, pfp_id).await.unwrap();
-                            }
-                        });
-                    }
-
-                    test.add_channel(channel_id, username, pfp)
-                }
+                channel_list.test(cs);
             }
-            ApiResponse::Messeges(_) => {}
+            _ => println!("nothing")
         }
     }
+
     parent_stack.add_named(&sections, Some("chats"));
 }
 
-// fn test(info: Vec<ApiResponse>) {
-//     for i in info {
-//         match i {
-//             ApiResponse::Friends(fs) => {
-//                 for f in fs {
-//                     let user_id = f.user.id;
-//                     let username = f.user.username;
-//                     let pfp_id = f.user.avatar;
-//
-//                     let url = format!(
-//                         "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-//                         user_id, pfp_id
-//                     );
-//                     let user_path =
-//                         Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
-//                     let pfp = user_path.join(&pfp_id);
-//
-//                     if !pfp.exists() {
-//                         runtime().spawn({
-//                             async move {
-//                                 download_image(url, &user_path, pfp_id).await.unwrap();
-//                             }
-//                         });
-//                     }
-//
-//                     friend_list.add_friend(user_id, username, pfp);
-//                 }
-//             }
-//             ApiResponse::Channels(cs) => {
-//                 for c in cs {
-//                     let recipient = c.recipients.last().unwrap();
-//                     let channel_id = c.id.clone();
-//
-//                     let username = match c.name {
-//                         Some(name) => name,
-//                         None => recipient.username.clone(),
-//                     };
-//
-//                     let url;
-//                     let data_path;
-//                     let pfp_id;
-//                     match c.icon {
-//                         // Group
-//                         Some(pfp) => {
-//                             pfp_id = pfp;
-//                             url = format!(
-//                                 "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
-//                                 c.id, pfp_id
-//                             );
-//                             data_path =
-//                                 Path::new(&format!("public/Discord/Channels/{}", channel_id))
-//                                     .to_owned();
-//                         }
-//                         // User
-//                         None => {
-//                             pfp_id = recipient.avatar.clone();
-//                             url = format!(
-//                                 "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-//                                 recipient.id, pfp_id
-//                             );
-//                             data_path =
-//                                 Path::new(&format!("public/Discord/Users/{}", recipient.id))
-//                                     .to_owned();
-//                         }
-//                     }
-//                     let pfp = data_path.join(&pfp_id);
-//
-//                     if !pfp.exists() {
-//                         runtime().spawn({
-//                             async move {
-//                                 download_image(url, &data_path, pfp_id).await.unwrap();
-//                             }
-//                         });
-//                     }
-//
-//                     test.add_channel(channel_id, username, pfp)
-//                 }
-//             }
-//         }
-//     }
-// }
