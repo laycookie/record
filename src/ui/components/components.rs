@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 use std::path::Path;
 use gtk4::{prelude::*, Align, Button, Entry, Image, Label, Orientation, Stack, Widget};
+use serde_json::to_string_pretty;
 use tokio::sync::oneshot;
 use crate::discord::rest_api::discord_endpoints;
 use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, Friend};
@@ -9,10 +10,10 @@ use crate::runtime;
 
 
 pub trait Component<T> {
-    fn test(&mut self, info: Vec<T>);
+    fn load(&mut self, info: Vec<T>);
 }
 impl Component<discord_endpoints::Channel> for Channels {
-    fn test(&mut self, info: Vec<discord_endpoints::Channel>) {
+    fn load(&mut self, info: Vec<discord_endpoints::Channel>) {
         for c in info {
             let recipient = c.recipients.last().unwrap();
             let channel_id = c.id.clone();
@@ -59,7 +60,7 @@ impl Component<discord_endpoints::Channel> for Channels {
 }
 
 impl Component<Friend> for FriendList {
-    fn test(&mut self, friends: Vec<Friend>) {
+    fn load(&mut self, friends: Vec<Friend>) {
         for f in friends {
             let user_id = f.user.id;
             let username = f.user.username;
@@ -84,7 +85,6 @@ impl Component<Friend> for FriendList {
         }
     }
 }
-
 
 struct Message {
     sender_other_then_client: Option<String>,
@@ -124,7 +124,7 @@ impl Channels {
     pub(crate) fn add_channel(&mut self, channel_id: String, username: String, icon_path: PathBuf) {
         let button_contents = gtk4::Box::new(Orientation::Horizontal, 5);
         button_contents.set_width_request(120);
-
+       
         let username_label = Label::new(Some(&username));
         let avatar = Image::from_file(icon_path.clone());
 
@@ -292,13 +292,14 @@ impl Chat {
         // Remove old messages
         self.clear_messages();
         // TODO: Add new messages
-        // let (tx, rx) = oneshot::channel();
-        // runtime().spawn(async move
-        // {
-        //     let messages = ApiEndpoints::GetMessages(channel_id, None, 50).call(todo!()).await.unwrap();
-        //     tx.send(messages).unwrap();
-        // });
-        // let message = rx.blocking_recv().unwrap();
+        let (tx, rx) = oneshot::channel();
+        runtime().spawn(async move
+        {
+            let messages = ApiEndpoints::GetMessages(channel_id, None, 50).call(None).await.unwrap();
+            println!("{:?}", messages);
+            tx.send(messages).unwrap();
+        });
+        let message = rx.blocking_recv().unwrap();
     }
 
     fn open_chat(&mut self, name: String, icon_path: PathBuf, channel_id: String) {
@@ -307,6 +308,16 @@ impl Chat {
         self.chat_icon.set_from_file(Some(icon_path));
         // Remove old messages
         self.clear_messages();
-        // TODO: Add new messeges
+        
+        let (tx, rx) = oneshot::channel();
+        runtime().spawn(async move
+        {
+         
+            let messages = ApiEndpoints::GetMessages(channel_id, None, 50).call(None).await.unwrap();
+            println!("{:?}", messages);
+            tx.send(messages).unwrap();
+        });
+        let message = rx.blocking_recv().unwrap();
+        //TODO: ADD a way to actually load the messages
     }
 }

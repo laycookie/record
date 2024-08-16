@@ -29,19 +29,19 @@ pub fn login_page(parent_stack: Stack) {
             if entered_token.is_empty() {
                 return;
             }
-
-            let data = match init_data(&entered_token) {
-                Ok(json) => json,
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    return;
-                }
-            };
-
             let mut data_file = File::create("./public/loginInfo").expect("creation failed");
             data_file
                 .write_all(entered_token.as_bytes())
                 .expect("Write Failed");
+
+            let data = match init_data() {
+                Ok(json) => json,
+                Err(e) => {
+                    println!("Error: {}", e);
+                    return;
+                }
+            };
+
 
             let user = LoginInfo {
                 discord_token: Some(entered_token),
@@ -71,10 +71,7 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
         }
     });
 
-    let info = match info {
-        Some(i) => i,
-        None => init_data(&token_data.discord_token.unwrap()).unwrap(),
-    };
+    let info = info.unwrap_or_else(|| init_data().unwrap());
 
     // let friend_list = info.as_array().unwrap();
 
@@ -126,10 +123,10 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
     for i in info {
         match i {
             ApiResponse::Friends(fs) => {
-                friend_list.test(fs);
+                friend_list.load(fs);
             }
             ApiResponse::Channels(cs) => {
-                channel_list.test(cs);
+                channel_list.load(cs);
             }
             _ => println!("nothing")
         }

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, error::Error, io::ErrorKind};
-
+use std::fs::File;
+use std::io::Read;
 use reqwest::{header::HeaderValue, StatusCode};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -33,9 +34,10 @@ impl ApiEndpoints {
 
     pub async fn call(
         &self,
-        headers: HashMap<&str, String>,
+        headers: Option<HashMap<&str, String>>,
     ) -> Result<ApiResponse, Box<dyn Error>> {
         let client = reqwest::Client::new();
+
 
         let mut request = match self {
             ApiEndpoints::FriendList => client.get(self.get_url()),
@@ -51,11 +53,19 @@ impl ApiEndpoints {
             }
             ApiEndpoints::GetMessages(_, _, _) => client.get(self.get_url()),
         };
-
-        for (key, value) in headers {
-            request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
+        let mut file = File::open("./public/loginInfo")?;
+        let mut token = String::new();
+        file.read_to_string(&mut token)?;
+        match headers {
+            Some(headers) =>
+                {
+                    for (key, value) in headers {
+                        request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
+                    }
+                }
+            None => ()
         }
-
+        request = request.header("Authorization", token);
         let response = request.send().await?;
         let response_status = response.status();
 
