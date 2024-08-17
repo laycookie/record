@@ -122,11 +122,11 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
 
     for i in info {
         match i {
-            ApiResponse::Friends(_) => {
-                friend_list.load_new_data(i);
+            ApiResponse::Friends(fs) => {
+                friend_list.load_new_data(fs);
             }
-            ApiResponse::Channels(_) => {
-                channel_list.load_new_data(i);
+            ApiResponse::Channels(cs) => {
+                channel_list.load_new_data(cs);
             }
             _ => println!("nothing")
         }

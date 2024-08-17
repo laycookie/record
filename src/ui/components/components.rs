@@ -1,7 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 use std::path::Path;
 use gtk4::{prelude::*, Align, Button, Entry, Image, Label, Orientation, Stack, Widget};
-use serde_json::to_string_pretty;
 use tokio::sync::oneshot;
 use crate::discord::rest_api::discord_endpoints;
 use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, Friend};
@@ -63,7 +62,7 @@ impl Channels {
                 chat_stack.set_visible_child(&chat.chat_element);
                 // I have no clue why I got to copy all of this but Im too tiered of fighting with
                 // the compiler at this point.
-                chat.switch_chat(username.clone(), icon_path.clone(), channel_id.clone());
+                chat.open_chat(username.clone(), icon_path.clone(), channel_id.clone());
             }
         });
         contact.set_child(Some(&button_contents));
@@ -118,12 +117,23 @@ impl FriendList {
             let chat_stack = self.chat_stack.clone();
             let chat = self.chat.clone();
             let user_id = user_id.clone();
+
             move |_| {
+                let user_id = user_id.clone();
                 let mut chat = (*chat).borrow_mut();
                 chat_stack.set_visible_child(&chat.chat_element);
-                // I have no clue why I got to copy all of this but Im too tiered of fighting with
-                // the compiler at this point.
-                chat.open_chat(username.clone(), icon_path.clone(), user_id.clone());
+
+                let (tx, rx) = oneshot::channel();
+                runtime().spawn(async move {
+                    let mut headers = HashMap::new();
+                    headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
+
+                    let messages = ApiEndpoints::GetChannels(Some(user_id)).call(headers).await.unwrap();
+                    tx.send(messages).unwrap();
+                });
+                if let ApiResponse::Channels(channels) = rx.blocking_recv().unwrap() {
+                    chat.open_chat(username.clone(), icon_path.clone(), channels[0].id.clone());
+                }
             }
         });
         button.set_child(Some(&user_box));
@@ -144,7 +154,7 @@ pub struct Chat {
     messages_element: gtk4::Box,
     messages: Vec<Message>,
     pub chat_element: gtk4::Box,
-    last_channel_id: Option<String>,
+    selected_channel_id: Option<String>,
 }
 
 impl Chat {
@@ -177,7 +187,7 @@ impl Chat {
             messages: vec![],
             messages_element: messeges,
             chat_element,
-            last_channel_id: None,
+            selected_channel_id: None,
         }
     }
 
@@ -207,141 +217,115 @@ impl Chat {
         self.messages.clear();
     }
 
-    fn switch_chat(&mut self, name: String, icon_path: PathBuf, channel_id: String) {
-        // Switch chat Info
-        // NOTE: THIS "match" STATEMENT IS USED SO THAT WHEN YOU OPEN A CHAT AND YOU REPEADETLY CLICK ON IT, THE MESSAGES WOULDN'T RELOAD EVERYTIME.
-
-        self.last_channel_id = match &self.last_channel_id
-        {
-            Some(current_channel_id) => {
-                if current_channel_id == &channel_id {
-                    return;
-                } else {
-                    Some(channel_id.clone())
-                }
-            }
-            None => {
-                Some(channel_id.clone())
-            }
-        };
-        self.chat_label.set_text(&name);
-        self.chat_icon.set_from_file(Some(icon_path));
-        // Remove old messages
-        self.clear_messages();
-        self.load_new_data(get_messages_by_channel_id(channel_id, None, 50));
-    }
-
     fn open_chat(&mut self, name: String, icon_path: PathBuf, channel_id: String) {
+        let select_channel = self.selected_channel_id.get_or_insert(channel_id.clone());
+        if select_channel == &channel_id {
+            return;
+        } else {
+            self.selected_channel_id = Some(channel_id.clone());
+        }
         // Switch chat Info
         self.chat_label.set_text(&name);
         self.chat_icon.set_from_file(Some(icon_path));
         // Remove old messages
         self.clear_messages();
-        self.load_new_data(get_messages_by_channel_id(channel_id, None, 50));
-    }
-}
-fn get_messages_by_channel_id(channel_id: String, before_message: Option<String>, limit: u32) -> ApiResponse
-{
-    let (tx, rx) = oneshot::channel();
-    runtime().spawn(async move
-    {
-        let mut headers = HashMap::new();
-        headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
-        let messages = ApiEndpoints::GetMessages(channel_id, before_message, limit).call(headers).await.unwrap();
-        tx.send(messages).unwrap();
-    });
-    rx.blocking_recv().unwrap()
-}
-pub trait Component {
-    fn load_new_data(&mut self, info: ApiResponse);
-}
-impl Component for Channels {
-    fn load_new_data(&mut self, info: ApiResponse) {
-        if let ApiResponse::Channels(info) = info {
-            for c in info {
-                let recipient = c.recipients.last().unwrap();
-                let channel_id = c.id.clone();
+        let (tx, rx) = oneshot::channel();
+        runtime().spawn(async move {
+            let mut headers = HashMap::new();
+            headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
 
-                let username = match c.name {
-                    Some(name) => name,
-                    None => recipient.username.clone(),
-                };
+            let messages = ApiEndpoints::GetMessages(channel_id, None, 50).call(headers).await.unwrap();
+            tx.send(messages).unwrap();
+        });
 
-                let (url, data_path, pfp_id) = match c.icon {
-                    Some(pfp) => (
-                        format!(
-                            "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
-                            c.id, pfp
-                        ),
-                        Path::new(&format!("public/Discord/Channels/{}", channel_id))
-                            .to_owned(),
-                        pfp,
-                    ),
-                    None => (
-                        format!(
-                            "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-                            recipient.id, recipient.avatar.clone()
-                        ),
-                        Path::new(&format!("public/Discord/Users/{}", recipient.id))
-                            .to_owned(),
-                        recipient.avatar.clone(),
-                    ),
-                };
-
-                let pfp = data_path.join(&pfp_id);
-
-                if !pfp.exists() {
-                    runtime().spawn({
-                        async move {
-                            download_image(url, &data_path, pfp_id).await.unwrap();
-                        }
-                    });
-                }
-
-                self.add_channel(channel_id, username, pfp);
-            }
+        if let ApiResponse::Messeges(messages) = rx.blocking_recv().unwrap() {
+            self.load_new_data(messages);
         }
     }
 }
 
-impl Component for FriendList {
-    fn load_new_data(&mut self, friends: ApiResponse) {
-        if let ApiResponse::Friends(friends) = friends {
-            for f in friends {
-                let user_id = f.user.id;
-                let username = f.user.username;
-                let pfp_id = f.user.avatar.unwrap();
 
-                let url = format!(
-                    "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-                    user_id, pfp_id
-                );
-                let user_path =
-                    Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
-                let pfp = user_path.join(&pfp_id);
+pub trait Component<T> {
+    fn load_new_data(&mut self, data: Vec<T>);
+}
+impl Component<discord_endpoints::Channel> for Channels {
+    fn load_new_data(&mut self, data: Vec<discord_endpoints::Channel>) {
+        for c in data {
+            let recipient = c.recipients.last().unwrap();
+            let channel_id = c.id.clone();
 
-                if !pfp.exists() {
-                    runtime().spawn({
-                        async move {
-                            download_image(url, &user_path, pfp_id).await.unwrap();
-                        }
-                    });
-                }
-                self.add_friend(user_id, username, pfp);
+            let username = match c.name {
+                Some(name) => name,
+                None => recipient.username.clone(),
+            };
+
+            let (url, data_path, pfp_id) = match c.icon {
+                Some(pfp) => (
+                    format!(
+                        "https://cdn.discordapp.com/channel-icons/{}/{}.png?size=80",
+                        c.id, pfp
+                    ),
+                    Path::new(&format!("public/Discord/Channels/{}", channel_id))
+                        .to_owned(),
+                    pfp,
+                ),
+                None => (
+                    format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                        recipient.id, recipient.avatar.clone()
+                    ),
+                    Path::new(&format!("public/Discord/Users/{}", recipient.id))
+                        .to_owned(),
+                    recipient.avatar.clone(),
+                ),
+            };
+
+            let pfp = data_path.join(&pfp_id);
+
+            if !pfp.exists() {
+                runtime().spawn({
+                    async move {
+                        download_image(url, &data_path, pfp_id).await.unwrap();
+                    }
+                });
             }
+
+            self.add_channel(channel_id, username, pfp);
         }
     }
 }
 
-impl Component for Chat
-{
-    fn load_new_data(&mut self, messages: ApiResponse)
-    {
-        if let ApiResponse::Messeges(messages) = messages {
-            for message in messages.into_iter().rev()
-            {
-                self.append_message(message.content, Some(message.author.username));
+impl Component<Friend> for FriendList {
+    fn load_new_data(&mut self, data: Vec<Friend>) {
+        for f in data {
+            let user_id = f.user.id;
+            let username = f.user.username;
+            let pfp_id = f.user.avatar.unwrap();
+
+            let url = format!(
+                "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                user_id, pfp_id
+            );
+            let user_path =
+                Path::new(&format!("public/Discord/Users/{}", user_id)).to_owned();
+            let pfp = user_path.join(&pfp_id);
+
+            if !pfp.exists() {
+                runtime().spawn({
+                    async move {
+                        download_image(url, &user_path, pfp_id).await.unwrap();
+                    }
+                });
             }
+            self.add_friend(user_id, username, pfp);
+        }
+    }
+}
+
+impl Component<discord_endpoints::Message> for Chat {
+    fn load_new_data(&mut self, data: Vec<discord_endpoints::Message>) {
+        for message in data.into_iter().rev() {
+            self.append_message(message.content, Some(message.author.username));
         }
     }
 }

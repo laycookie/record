@@ -47,14 +47,13 @@ pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, io::Error> {
         let mut headers = HashMap::new();
         headers.insert("Authorization", token_arc.to_string());
         let channels = match ApiEndpoints::GetChannels(None).call(headers.clone()).await {
-            // I don't understand why I have to infer type in this case
-            Ok(channel) => Ok::<ApiResponse, Box<dyn Error>>(channel),
-            Err(_) =>
-                {
-                    tx.send(Err(io::Error::new(ErrorKind::NotFound, "Error in finding channels of a user"))).unwrap();
-                    return;
-                }
-        }.unwrap();
+            Ok(channel) => channel,
+            Err(_) => {
+                tx.send(Err(io::Error::new(ErrorKind::NotFound, "Error in finding channels of a user"))).unwrap();
+                return;
+            }
+        };
+
         let friends = ApiEndpoints::FriendList
             .call(headers)
             .await
@@ -70,3 +69,5 @@ struct BasicData {
     friends: Vec<serde_json::Value>,
     channels: Vec<Channel>,
 }
+
+

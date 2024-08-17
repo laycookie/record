@@ -82,17 +82,23 @@ impl ApiEndpoints {
             }
             Self::GetChannels(_) => {
                 let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
-                let a = a.as_array().unwrap();
-                let a: Vec<Channel> = a
-                    .iter()
-                    .map(|e| serde_json::from_value(e.clone()).unwrap())
-                    .collect();
-                ApiResponse::Channels(a)
+
+                match a.as_array() {
+                    Some(a) => {
+                        let arr = a
+                            .iter()
+                            .map(|e| serde_json::from_value(e.clone()).unwrap())
+                            .collect();
+                        ApiResponse::Channels(arr)
+                    }
+                    None => ApiResponse::Channels(vec![serde_json::from_value(a.clone()).unwrap()])
+                }
             }
             Self::GetMessages(_, _, _) => {
                 let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
+
                 let a = a.as_array().unwrap();
-                println!("{:#?}", a);
+
                 let a: Vec<Message> = a
                     .iter()
                     .map(|e| serde_json::from_value(e.clone()).unwrap())
