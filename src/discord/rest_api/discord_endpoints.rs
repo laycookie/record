@@ -4,6 +4,7 @@ use std::io::Read;
 use reqwest::{header::HeaderValue, StatusCode};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use crate::get_tokens;
 
 pub const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg/?v=10&encoding=json";
 
@@ -34,7 +35,7 @@ impl ApiEndpoints {
 
     pub async fn call(
         &self,
-        headers: Option<HashMap<&str, String>>,
+        headers: HashMap<&str, String>,
     ) -> Result<ApiResponse, Box<dyn Error>> {
         let client = reqwest::Client::new();
 
@@ -53,19 +54,12 @@ impl ApiEndpoints {
             }
             ApiEndpoints::GetMessages(_, _, _) => client.get(self.get_url()),
         };
-        let mut file = File::open("./public/loginInfo")?;
-        let mut token = String::new();
-        file.read_to_string(&mut token)?;
-        match headers {
-            Some(headers) =>
-                {
-                    for (key, value) in headers {
-                        request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
-                    }
-                }
-            None => ()
+
+        for (key, value) in headers {
+            request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
         }
-        request = request.header("Authorization", token);
+
+
         let response = request.send().await?;
         let response_status = response.status();
 
@@ -74,7 +68,6 @@ impl ApiEndpoints {
         }
 
         let response_text: String = response.text().await?;
-        // println!("{:#?}", response_text);
 
         Ok(match self {
             Self::FriendList => {

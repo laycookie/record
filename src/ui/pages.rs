@@ -34,10 +34,10 @@ pub fn login_page(parent_stack: Stack) {
                 .write_all(entered_token.as_bytes())
                 .expect("Write Failed");
 
-            let data = match init_data() {
+            let data = match init_data(&entered_token) {
                 Ok(json) => json,
                 Err(e) => {
-                    println!("Error: {}", e);
+                    eprintln!("Error: {}", e);
                     return;
                 }
             };
@@ -71,7 +71,7 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
         }
     });
 
-    let info = info.unwrap_or_else(|| init_data().unwrap());
+    let info = info.unwrap_or_else(|| init_data(&token_data.discord_token.unwrap()).unwrap());
 
     // let friend_list = info.as_array().unwrap();
 
@@ -122,11 +122,11 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
 
     for i in info {
         match i {
-            ApiResponse::Friends(fs) => {
-                friend_list.load(fs);
+            ApiResponse::Friends(_) => {
+                friend_list.load_new_data(i);
             }
-            ApiResponse::Channels(cs) => {
-                channel_list.load(cs);
+            ApiResponse::Channels(_) => {
+                channel_list.load_new_data(i);
             }
             _ => println!("nothing")
         }

@@ -39,11 +39,14 @@ pub async fn download_image(
     Ok(())
 }
 
-pub fn init_data() -> Result<Vec<ApiResponse>, io::Error> {
+pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, io::Error> {
+    let token_arc = Arc::new(token.to_owned());
     let (tx, rx) = oneshot::channel();
 
     runtime().spawn(async move {
-        let channels = match ApiEndpoints::GetChannels(None).call(None).await {
+        let mut headers = HashMap::new();
+        headers.insert("Authorization", token_arc.to_string());
+        let channels = match ApiEndpoints::GetChannels(None).call(headers.clone()).await {
             // I don't understand why I have to infer type in this case
             Ok(channel) => Ok::<ApiResponse, Box<dyn Error>>(channel),
             Err(_) =>
@@ -53,7 +56,7 @@ pub fn init_data() -> Result<Vec<ApiResponse>, io::Error> {
                 }
         }.unwrap();
         let friends = ApiEndpoints::FriendList
-            .call(None)
+            .call(headers)
             .await
             .unwrap();
 
