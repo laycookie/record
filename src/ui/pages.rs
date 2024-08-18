@@ -71,9 +71,6 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
     });
 
     let info = info.unwrap_or_else(|| init_data(&token_data.discord_token.unwrap()).unwrap());
-
-    // let friend_list = info.as_array().unwrap();
-
     let sections = gtk4::Box::new(Orientation::Horizontal, 0);
 
     // === Main Panel ===
@@ -97,10 +94,8 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
         friends.connect_clicked({
             let stack = chat_area.clone();
             let friend_list = friend_list.friend_list_element.clone();
-            // let chat = chat.clone();
+
             move |_| {
-                // let mut chat = (*chat).borrow_mut();
-                // chat.selected_channel_id = None;
                 stack.set_visible_child(&friend_list);
             }
         });

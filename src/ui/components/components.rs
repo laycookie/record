@@ -129,11 +129,13 @@ impl FriendList {
                     let mut headers = HashMap::new();
                     headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
 
-                    let messages = ApiEndpoints::GetChannels(Some(user_id)).call(headers).await.unwrap();
-                    tx.send(messages).unwrap();
+                    let channel = ApiEndpoints::GetChannels(Some(user_id)).call(headers).await.unwrap();
+                    tx.send(channel).unwrap();
                 });
-                if let ApiResponse::Channels(channels) = rx.blocking_recv().unwrap() {
-                    chat.open_chat(username.clone(), icon_path.clone(), channels[0].id.clone());
+                if let ApiResponse::Channels(channel) = rx.blocking_recv().unwrap() {
+                    // I have no clue why I got to copy all of this but Im too tiered of fighting with
+                    // the compiler at this point.
+                    chat.open_chat(username.clone(), icon_path.clone(), channel[0].id.clone());
                 }
             }
         });
@@ -155,7 +157,7 @@ pub struct Chat {
     messages_element: gtk4::Box,
     messages: Vec<Message>,
     pub chat_element: gtk4::Box,
-    pub selected_channel_id: Option<String>,
+    selected_channel_id: Option<String>,
 }
 
 impl Chat {
