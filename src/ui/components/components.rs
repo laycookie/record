@@ -220,11 +220,11 @@ impl Chat {
     }
 
     fn open_chat(&mut self, name: String, icon_path: PathBuf, channel_id: String) {
-        if self.selected_channel_id != Some(channel_id.clone()) {
-            self.selected_channel_id.replace(channel_id.clone());
-        } else {
+
+        if self.selected_channel_id == Some(channel_id.clone()) {
             return;
         }
+        self.selected_channel_id.replace(channel_id.clone());
 
         // Switch chat Info
         self.chat_label.set_text(&name);
