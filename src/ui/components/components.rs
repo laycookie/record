@@ -57,6 +57,7 @@ impl Channels {
             let chat_stack = self.chat_stack.clone();
             let chat = self.chat.clone();
             let channel_id = channel_id.clone();
+
             move |_| {
                 let mut chat = (*chat).borrow_mut();
                 chat_stack.set_visible_child(&chat.chat_element);
@@ -154,7 +155,7 @@ pub struct Chat {
     messages_element: gtk4::Box,
     messages: Vec<Message>,
     pub chat_element: gtk4::Box,
-    selected_channel_id: Option<String>,
+    pub selected_channel_id: Option<String>,
 }
 
 impl Chat {
@@ -214,16 +215,17 @@ impl Chat {
         for message in &self.messages {
             self.messages_element.remove(&message.message_element);
         }
+
         self.messages.clear();
     }
 
     fn open_chat(&mut self, name: String, icon_path: PathBuf, channel_id: String) {
-        let select_channel = self.selected_channel_id.get_or_insert(channel_id.clone());
-        if select_channel == &channel_id {
-            return;
+        if self.selected_channel_id != Some(channel_id.clone()) {
+            self.selected_channel_id.replace(channel_id.clone());
         } else {
-            self.selected_channel_id = Some(channel_id.clone());
+            return;
         }
+
         // Switch chat Info
         self.chat_label.set_text(&name);
         self.chat_icon.set_from_file(Some(icon_path));

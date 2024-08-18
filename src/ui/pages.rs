@@ -42,7 +42,6 @@ pub fn login_page(parent_stack: Stack) {
                 }
             };
 
-
             let user = LoginInfo {
                 discord_token: Some(entered_token),
             };
@@ -98,7 +97,10 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
         friends.connect_clicked({
             let stack = chat_area.clone();
             let friend_list = friend_list.friend_list_element.clone();
+            // let chat = chat.clone();
             move |_| {
+                // let mut chat = (*chat).borrow_mut();
+                // chat.selected_channel_id = None;
                 stack.set_visible_child(&friend_list);
             }
         });
