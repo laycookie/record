@@ -1,8 +1,10 @@
 use std::{collections::HashMap, error::Error, io::ErrorKind};
-
+use std::fs::File;
+use std::io::Read;
 use reqwest::{header::HeaderValue, StatusCode};
 use serde::Deserialize;
 use serde_json::{json, Value};
+use crate::get_tokens;
 
 pub const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg/?v=10&encoding=json";
 
@@ -37,6 +39,7 @@ impl ApiEndpoints {
     ) -> Result<ApiResponse, Box<dyn Error>> {
         let client = reqwest::Client::new();
 
+
         let mut request = match self {
             ApiEndpoints::FriendList => client.get(self.get_url()),
             ApiEndpoints::GetChannels(user_id) => {
@@ -56,6 +59,7 @@ impl ApiEndpoints {
             request = request.header(key, HeaderValue::from_str(value.as_str()).unwrap());
         }
 
+
         let response = request.send().await?;
         let response_status = response.status();
 
@@ -64,7 +68,6 @@ impl ApiEndpoints {
         }
 
         let response_text: String = response.text().await?;
-        // println!("{:#?}", response_text);
 
         Ok(match self {
             Self::FriendList => {
@@ -79,17 +82,23 @@ impl ApiEndpoints {
             }
             Self::GetChannels(_) => {
                 let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
-                let a = a.as_array().unwrap();
-                let a: Vec<Channel> = a
-                    .iter()
-                    .map(|e| serde_json::from_value(e.clone()).unwrap())
-                    .collect();
-                ApiResponse::Channels(a)
+
+                match a.as_array() {
+                    Some(a) => {
+                        let arr = a
+                            .iter()
+                            .map(|e| serde_json::from_value(e.clone()).unwrap())
+                            .collect();
+                        ApiResponse::Channels(arr)
+                    }
+                    None => ApiResponse::Channels(vec![serde_json::from_value(a.clone()).unwrap()])
+                }
             }
             Self::GetMessages(_, _, _) => {
                 let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
+
                 let a = a.as_array().unwrap();
-                println!("{:#?}", a);
+
                 let a: Vec<Message> = a
                     .iter()
                     .map(|e| serde_json::from_value(e.clone()).unwrap())

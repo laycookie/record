@@ -1,12 +1,8 @@
 use reqwest::{header::HeaderValue, StatusCode};
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::{copy, ErrorKind},
-    path::Path,
-    sync::Arc,
-};
-use tokio::sync::oneshot;
+use std::{collections::HashMap, fs::{self, File}, io::{copy, ErrorKind}, io, path::Path, sync::Arc};
+use std::error::Error;
+
+use tokio::sync::{oneshot};
 
 use crate::{discord::rest_api::discord_endpoints::Channel, runtime};
 
@@ -43,32 +39,35 @@ pub async fn download_image(
     Ok(())
 }
 
-pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, std::io::Error> {
+pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, io::Error> {
     let token_arc = Arc::new(token.to_owned());
-
     let (tx, rx) = oneshot::channel();
 
     runtime().spawn(async move {
         let mut headers = HashMap::new();
         headers.insert("Authorization", token_arc.to_string());
-
-        let channels = ApiEndpoints::GetChannels(None)
-            .call(headers.clone())
-            .await
-            .unwrap();
+        let channels = match ApiEndpoints::GetChannels(None).call(headers.clone()).await {
+            Ok(channel) => channel,
+            Err(_) => {
+                tx.send(Err(io::Error::new(ErrorKind::NotFound, "Error in finding channels of a user"))).unwrap();
+                return;
+            }
+        };
 
         let friends = ApiEndpoints::FriendList
-            .call(headers.clone())
+            .call(headers)
             .await
             .unwrap();
 
-        tx.send(vec![channels, friends]).unwrap();
+        tx.send(Ok(vec![channels, friends])).unwrap();
     });
 
-    Ok(rx.blocking_recv().unwrap())
+    rx.blocking_recv().unwrap()
 }
 
 struct BasicData {
     friends: Vec<serde_json::Value>,
     channels: Vec<Channel>,
 }
+
+
