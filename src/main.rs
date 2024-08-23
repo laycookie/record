@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use gtk4::gio::Settings;
 use gtk4::{gdk, gio, glib, Application, ApplicationWindow, Stack};
 use gtk4::{prelude::*, CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
@@ -7,7 +8,9 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
+use tokio::sync::oneshot;
 use ui::pages::{chat_page, login_page};
+use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser};
 
 pub mod discord;
 pub mod ui;
@@ -85,4 +88,20 @@ pub fn invalidete_token(tokens: &mut LoginInfo) {
 pub fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| Runtime::new().expect("Setting up tokio runtime needs to succeed."))
+}
+pub(crate)fn get_user_info() -> AuthedUser {
+
+    let (tx, rx) = oneshot::channel();
+    runtime().spawn(async move {
+        let mut headers = HashMap::new();
+        headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
+
+        let messages = ApiEndpoints::GetUser.call(headers).await.unwrap();
+        tx.send(messages).unwrap();
+    });
+    if let ApiResponse::User(user) = rx.blocking_recv().unwrap() {
+        user
+    } else {
+        panic!("User data not found.")
+    }
 }
