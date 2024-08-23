@@ -1,13 +1,13 @@
-use gtk4::{prelude::*, Button, Entry, Orientation, Stack};
+use gtk4::{prelude::*, Button, Entry, Orientation, Stack, Image};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::{fs::File, io::Write};
 use gtk4::glib::clone;
-use super::components::components::{Channels, Chat, Component, FriendList};
+use super::components::components::{Channels, Chat, Component, FriendList, Guilds};
 use gtk4::glib;
 use crate::discord::rest_api::discord_endpoints::ApiResponse;
 use crate::discord::rest_api::utils::init_data;
-use crate::{runtime, LoginInfo, get_user_info};
+use crate::LoginInfo;
 
 pub fn login_page(parent_stack: Stack) {
     let login = gtk4::Box::new(Orientation::Vertical, 5);
@@ -73,27 +73,26 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
     let chat = Rc::new(RefCell::new(Chat::new()));
     let mut friend_list = FriendList::new(chat.clone(), chat_area.clone());
 
-    chat_area.add_child(&friend_list.friend_list_element);
-    chat_area.add_child(&chat.borrow().chat_element);
+    chat_area.add_named(&friend_list.friend_list_element, Some("friend_element"));
+    chat_area.add_named(&chat.borrow().chat_element, Some("chat_element"));
 
     // === Sidebar ===
     let sidebar = gtk4::Box::new(Orientation::Vertical, 20);
 
+    //Guild Panel
+    let mut guild_bar = Guilds::new(chat_area.clone());
+
     //==="Friend" Button===
-    let menu = gtk4::Box::new(Orientation::Vertical, 5);
+    let friend_box = gtk4::Box::new(Orientation::Vertical, 5);
     let friends = Button::new();
     friends.set_label("Friends");
     friends.connect_clicked(clone!(
-        @weak chat_area,
-        @strong friend_list.friend_list_element as friend_list =>
+        @weak chat_area =>
         move |_| {
-            chat_area.set_visible_child(&friend_list);
+            chat_area.set_visible_child_name("friend_element");
         }));
-    menu.append(&friends);
-    sidebar.append(&menu);
 
-    //Guild Panel
-    let guild_box = gtk4::Box::new(Orientation::Vertical, 5);
+    sidebar.append(&friends);
 
     // DM list
     let mut channel_list = Channels::new(chat, chat_area.clone());
@@ -104,7 +103,7 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
 
     sidebar.append(&scroll);
     // ===
-    sections.append(&guild_box);
+    sections.append(&guild_bar.guilds_element);
     sections.append(&sidebar);
     sections.append(&chat_area);
 
@@ -118,6 +117,9 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
             }
             ApiResponse::Channels(channels) => {
                 channel_list.load_new_data(channels);
+            }
+            ApiResponse::Guilds(guilds) => {
+                guild_bar.load_new_data(guilds);
             }
             _ => println!("nothing")
         }

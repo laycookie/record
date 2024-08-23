@@ -1,6 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
 use std::path::Path;
 use gtk4::{prelude::*, Align, Button, Entry, Image, Label, Orientation, Stack, Widget};
+
+use gtk4::glib;
 use tokio::sync::oneshot;
 use crate::discord::rest_api::discord_endpoints;
 use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser, Friend};
@@ -126,7 +128,7 @@ impl FriendList {
             move |_| {
                 let user_id = user_id.clone();
                 let mut chat = chat.borrow_mut();
-                chat_stack.set_visible_child(&chat.chat_element);
+                chat_stack.set_visible_child_name("chat_element");
 
                 let (tx, rx) = oneshot::channel();
                 runtime().spawn(async move {
@@ -162,6 +164,64 @@ pub struct Chat {
     messages: Vec<Message>,
     pub chat_element: gtk4::Box,
     selected_channel_id: Option<String>,
+}
+pub struct Guild {
+    guild_name: String,
+    guild_id: String,
+    guild_element: Button,
+}
+pub struct Guilds {
+    guilds: Vec<Guild>,
+    chat_stack: Stack,
+    pub guilds_element: gtk4::Box,
+    pub discriminator: u8,
+}
+impl Guilds
+{
+    pub(crate) fn new(chat_stack: Stack) -> Self {
+        let guilds_element = gtk4::Box::new(Orientation::Vertical, 0);
+        let dm_box = gtk4::Box::new(Orientation::Vertical, 0);
+
+        let discord_logo = Image::from_file(Path::new("src/ui/assets/discord_logo.png").to_owned());
+
+        dm_box.set_valign(Align::Center);
+        dm_box.append(&discord_logo);
+
+        let dm_button = Button::new();
+        dm_button.set_child(Some(&dm_box));
+
+        dm_button.connect_clicked(glib::clone!(
+            @weak chat_stack =>
+            move |_| {
+                chat_stack.set_visible_child_name("chat_element");
+            }
+        ));
+        guilds_element.append(&dm_button);
+        Self {
+            guilds: vec![],
+            chat_stack,
+            guilds_element,
+            discriminator: 0,
+        }
+    }
+    pub(crate) fn add_guild(&mut self, guild_id: String, icon_path: PathBuf, guild_name: String) {
+        let button_contents = gtk4::Box::new(Orientation::Horizontal, 5);
+
+        let avatar = Image::from_file(icon_path.clone());
+        button_contents.append(&avatar);
+        let guild_button = Button::new();
+
+        guild_button.connect_clicked(
+            move |_| { todo!()});
+        guild_button.set_child(Some(&button_contents));
+
+        self.guilds_element.append(&guild_button);
+        self.guilds.push(Guild {
+            guild_name,
+            guild_id,
+            guild_element: guild_button,
+        });
+    }
 }
 
 impl Chat {
@@ -250,20 +310,54 @@ impl Chat {
         }
     }
 }
-pub struct Guilds {
-    guilds: Vec<Guild>,
-    chat: Rc<RefCell<Chat>>,
-    //chat_stack: Stack,
-    guilds_element: gtk4::Button,
-}
-pub struct Guild {
-    guild_id: String,
-    guild_element: gtk4::Button,
-}
+
 
 pub trait Component<T> {
     fn load_new_data(&mut self, data: Vec<T>);
 }
+impl Component<discord_endpoints::Guilds> for Guilds
+{
+    fn load_new_data(&mut self, data: Vec<discord_endpoints::Guilds>) {
+        for guilds in data
+        {
+            let guild_id = guilds.id.clone();
+            let guild_name = guilds.name.clone();
+            let (url, data_path, pfp_id) = match guilds.icon {
+                Some(pfp) => {
+                    (format!(
+                        "https://cdn.discordapp.com/icons/{}/{}.png?size=80",
+                        guild_id, pfp
+                    ),
+                     Path::new(&format!("public/Discord/Guilds/{}", guild_id))
+                         .to_owned(),
+                     pfp)
+                }
+                None => {
+                    self.discriminator += 1;
+                    (format!(
+                        "https://cdn.discordapp.com/embed/avatars/{}.png",
+                        self.discriminator.clone() % 5
+                    ),
+                     Path::new(&format!("public/Discord/Guilds/{}", guild_id))
+                         .to_owned(),
+                     self.discriminator.clone().to_string())
+                }
+            };
+            let pfp = data_path.join(&pfp_id);
+
+            if !pfp.exists() {
+                runtime().spawn({
+                    async move {
+                        download_image(url, &data_path, pfp_id).await.unwrap();
+                    }
+                });
+            }
+            self.add_guild(guild_id, pfp, guild_name);
+        }
+    }
+}
+
+
 impl Component<discord_endpoints::Channel> for Channels {
     fn load_new_data(&mut self, data: Vec<discord_endpoints::Channel>) {
         for c in data {
@@ -276,16 +370,16 @@ impl Component<discord_endpoints::Channel> for Channels {
 
                 let (url, data_path, pfp_id) = match c.recipients[0].avatar.clone() {
                     Some(pfp) => {
-
                         (
-                        format!(
-                            "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
-                            c.recipients[0].id, pfp
-                        ),
-                        Path::new(&format!("public/Discord/Channels/{}", channel_id))
-                            .to_owned(),
-                        pfp,
-                    )}
+                            format!(
+                                "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                                c.recipients[0].id, pfp
+                            ),
+                            Path::new(&format!("public/Discord/Channels/{}", channel_id))
+                                .to_owned(),
+                            pfp,
+                        )
+                    }
                     None => {
                         self.discriminator += 1;
                         (format!(
@@ -372,17 +466,17 @@ impl Component<Friend> for FriendList {
                             "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
                             user_id, pfp
                         ),
-                        pfp)
+                         pfp)
                     }
                 None =>
                     {
                         self.discriminator += 1;
                         (
-                        format!(
-                            "https://cdn.discordapp.com/embed/avatars/{}.png",
-                            self.discriminator.clone() % 5
-                        ),
-                        self.discriminator.clone().to_string())
+                            format!(
+                                "https://cdn.discordapp.com/embed/avatars/{}.png",
+                                self.discriminator.clone() % 5
+                            ),
+                            self.discriminator.clone().to_string())
                     }
             };
 
@@ -404,8 +498,7 @@ impl Component<Friend> for FriendList {
 
 impl Component<discord_endpoints::Message> for Chat {
     fn load_new_data(&mut self, data: Vec<discord_endpoints::Message>) {
-
-        let AuthedUser {id, username, avatar} = get_user_info();
+        let AuthedUser { id, username, avatar } = get_user_info();
         for message in data.into_iter().rev() {
             if message.author.id == id {
                 self.append_message(message.content, None);

@@ -53,13 +53,16 @@ pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, io::Error> {
                 return;
             }
         };
-
         let friends = ApiEndpoints::FriendList
+            .call(headers.clone())
+            .await
+            .unwrap();
+        let guilds = ApiEndpoints::GetGuilds
             .call(headers)
             .await
             .unwrap();
 
-        tx.send(Ok(vec![channels, friends])).unwrap();
+        tx.send(Ok(vec![channels, friends, guilds])).unwrap();
     });
 
     rx.blocking_recv().unwrap()

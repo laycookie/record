@@ -10,6 +10,7 @@ pub enum ApiEndpoints {
     GetChannels(Option<String>),              // user ID
     GetMessages(String, Option<String>, u32), // Channel ID, Load before message, Message Limit
     GetUser,
+    GetGuilds,
 }
 
 impl ApiEndpoints {
@@ -29,6 +30,7 @@ impl ApiEndpoints {
                 )
             }
             Self::GetUser => "https://discord.com/api/v9/users/@me".into(),
+            Self::GetGuilds => "https://discord.com/api/v9/users/@me/guilds".into(),
         }
     }
 
@@ -53,6 +55,7 @@ impl ApiEndpoints {
             }
             ApiEndpoints::GetMessages(_, _, _) => client.get(self.get_url()),
             ApiEndpoints::GetUser => client.get(self.get_url()),
+            ApiEndpoints::GetGuilds => client.get(self.get_url()),
         };
 
         for (key, value) in headers {
@@ -74,9 +77,8 @@ impl ApiEndpoints {
                 None => ApiResponse::Channels(response.json::<Vec<Channel>>().await.unwrap()),
                 Some(_) => ApiResponse::Channels(vec![response.json::<Channel>().await.unwrap()]),
             }
-
+            Self::GetGuilds => ApiResponse::Guilds(response.json::<Vec<Guilds>>().await.unwrap()),
             Self::GetMessages(_, _, _) => {
-
                 ApiResponse::Messeges(response.json::<Vec<Message>>().await.unwrap())
             }
 
@@ -121,6 +123,7 @@ pub enum ApiResponse {
     Channels(Vec<Channel>),
     Messeges(Vec<Message>),
     User(AuthedUser),
+    Guilds(Vec<Guilds>),
 }
 #[derive(Deserialize, Debug)]
 pub struct AuthedUser {
@@ -181,6 +184,14 @@ pub struct Friend {
     pub type_of: i32,
     pub user: User,
     pub is_spam_request: bool,
+}
+
+
+#[derive(Deserialize, Debug)]
+pub struct Guilds {
+    pub icon: Option<String>,
+    pub id: String,
+    pub name: String,
 }
 
 #[derive(Deserialize, Debug)]
