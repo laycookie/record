@@ -19,5 +19,5 @@ Cargo.lock
 # stores user data
 public/loginInfo
 public/Contacts/pfp/*
-public/Discord/Channels/*
-public/Discord/Users/*
+public/Discord/Channels/
+public/Discord/Users/
