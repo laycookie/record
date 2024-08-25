@@ -4,9 +4,9 @@ use std::error::Error;
 
 use tokio::sync::{oneshot};
 
-use crate::{discord::rest_api::discord_endpoints::Channel, runtime};
+use crate::{discord::rest_api::discord_endpoints::Channel, get_tokens, runtime};
 
-use super::discord_endpoints::{ApiEndpoints, ApiResponse};
+use super::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser};
 
 pub async fn download_image(
     url: String,
@@ -67,7 +67,22 @@ pub fn init_data(token: &String) -> Result<Vec<ApiResponse>, io::Error> {
 
     rx.blocking_recv().unwrap()
 }
+//Temporary function, we will remove it once we have a proper way to make non-blocking API requests.
+pub(crate) fn get_discord_user_info() -> AuthedUser {
+    let (tx, rx) = oneshot::channel();
+    runtime().spawn(async move {
+        let mut headers = HashMap::new();
+        headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
 
+        let messages = ApiEndpoints::GetUser.call(headers).await.unwrap();
+        tx.send(messages).unwrap();
+    });
+    if let ApiResponse::User(user) = rx.blocking_recv().unwrap() {
+        user
+    } else {
+        panic!("User data not found.")
+    }
+}
 struct BasicData {
     friends: Vec<serde_json::Value>,
     channels: Vec<Channel>,

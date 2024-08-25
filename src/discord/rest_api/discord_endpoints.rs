@@ -118,22 +118,7 @@ trait ApiRes: Sized + for<'a> Deserialize<'a> {
     }
 }
 
-//Temporary function, we will remove it once we have a proper way to make non-blocking API requests.
-pub(crate) fn get_discord_user_info() -> AuthedUser {
-    let (tx, rx) = oneshot::channel();
-    runtime().spawn(async move {
-        let mut headers = HashMap::new();
-        headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
 
-        let messages = ApiEndpoints::GetUser.call(headers).await.unwrap();
-        tx.send(messages).unwrap();
-    });
-    if let ApiResponse::User(user) = rx.blocking_recv().unwrap() {
-        user
-    } else {
-        panic!("User data not found.")
-    }
-}
 #[derive(Debug)]
 pub enum ApiResponse {
     Friends(Vec<Friend>),

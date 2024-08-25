@@ -87,7 +87,7 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
     scroll_guild.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
     scroll_guild.set_vexpand(true);
     scroll_guild.set_child(Some(&guild_bar.guilds_element));
-    sections.append(&scroll_guild);
+
 
     //==="Friend" Button===
     let menu = gtk4::Box::new(Orientation::Vertical, 5);
@@ -112,7 +112,7 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
 
     sidebar.append(&scroll);
     // ===
-
+    sections.append(&scroll_guild);
     sections.append(&sidebar);
     sections.append(&chat_area);
 

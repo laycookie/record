@@ -5,8 +5,8 @@ use gtk4::{prelude::*, Align, Button, Entry, Image, Label, Orientation, Stack, W
 use gtk4::glib;
 use tokio::sync::oneshot;
 use crate::discord::rest_api::discord_endpoints;
-use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser, Friend, get_discord_user_info};
-use crate::discord::rest_api::utils::download_image;
+use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser, Friend};
+use crate::discord::rest_api::utils::{download_image, get_discord_user_info};
 use crate::{get_tokens, runtime};
 
 
@@ -191,9 +191,9 @@ impl Guilds
 
         chat_button.connect_clicked({
             let chat_stack = chat_stack.clone();
-            let chat = chat.clone();
+            let chat_element = chat.borrow().chat_element.clone();
             move |_| {
-                chat_stack.set_visible_child(&chat.borrow().chat_element);
+                chat_stack.set_visible_child(&chat_element);
             }
         });
         guilds_element.append(&chat_button);
