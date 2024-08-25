@@ -5,9 +5,9 @@ use gtk4::{prelude::*, Align, Button, Entry, Image, Label, Orientation, Stack, W
 use gtk4::glib;
 use tokio::sync::oneshot;
 use crate::discord::rest_api::discord_endpoints;
-use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser, Friend};
+use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser, Friend, get_discord_user_info};
 use crate::discord::rest_api::utils::download_image;
-use crate::{get_tokens, get_user_info, runtime};
+use crate::{get_tokens, runtime};
 
 
 struct Message {
@@ -64,9 +64,9 @@ impl Channels {
 
             move |_| {
                 let mut chat = chat.borrow_mut();
-                chat_stack.set_visible_child(&chat.chat_element);
                 // I have no clue why I got to copy all of this but Im too tiered of fighting with
                 // the compiler at this point.
+                chat_stack.set_visible_child(&chat.chat_element);
                 chat.open_chat(username.clone(), icon_path.clone(), channel_id.clone());
             }
         });
@@ -128,8 +128,7 @@ impl FriendList {
             move |_| {
                 let user_id = user_id.clone();
                 let mut chat = chat.borrow_mut();
-                chat_stack.set_visible_child_name("chat_element");
-
+                chat_stack.set_visible_child(&chat.chat_element);
                 let (tx, rx) = oneshot::channel();
                 runtime().spawn(async move {
                     let mut headers = HashMap::new();
@@ -175,33 +174,35 @@ pub struct Guilds {
     chat_stack: Stack,
     pub guilds_element: gtk4::Box,
     pub discriminator: u8,
+    chat: Rc<RefCell<Chat>>,
 }
 impl Guilds
 {
-    pub(crate) fn new(chat_stack: Stack) -> Self {
+    pub(crate) fn new(chat_stack: Stack, chat: Rc<RefCell<Chat>>) -> Self {
         let guilds_element = gtk4::Box::new(Orientation::Vertical, 0);
-        let dm_box = gtk4::Box::new(Orientation::Vertical, 0);
+        let button_contents = gtk4::Box::new(Orientation::Vertical, 0);
+        button_contents.set_valign(Align::Center);
 
-        let discord_logo = Image::from_file(Path::new("src/ui/assets/discord_logo.png").to_owned());
+        let discord_logo = Image::from_file(Path::new("src/ui/assets/chat_button_logo.png").to_owned());
+        button_contents.append(&discord_logo);
 
-        dm_box.set_valign(Align::Center);
-        dm_box.append(&discord_logo);
+        let chat_button = Button::new();
+        chat_button.set_child(Some(&button_contents));
 
-        let dm_button = Button::new();
-        dm_button.set_child(Some(&dm_box));
-
-        dm_button.connect_clicked(glib::clone!(
-            @weak chat_stack =>
+        chat_button.connect_clicked({
+            let chat_stack = chat_stack.clone();
+            let chat = chat.clone();
             move |_| {
-                chat_stack.set_visible_child_name("chat_element");
+                chat_stack.set_visible_child(&chat.borrow().chat_element);
             }
-        ));
-        guilds_element.append(&dm_button);
+        });
+        guilds_element.append(&chat_button);
         Self {
             guilds: vec![],
             chat_stack,
             guilds_element,
             discriminator: 0,
+            chat,
         }
     }
     pub(crate) fn add_guild(&mut self, guild_id: String, icon_path: PathBuf, guild_name: String) {
@@ -212,7 +213,7 @@ impl Guilds
         let guild_button = Button::new();
 
         guild_button.connect_clicked(
-            move |_| { todo!()});
+            move |_| { todo!() });
         guild_button.set_child(Some(&button_contents));
 
         self.guilds_element.append(&guild_button);
@@ -289,9 +290,11 @@ impl Chat {
         if self.selected_channel_id == Some(channel_id.clone()) {
             return;
         }
+
         self.selected_channel_id.replace(channel_id.clone());
 
         // Switch chat Info
+
         self.chat_label.set_text(&name);
         self.chat_icon.set_from_file(Some(icon_path));
         // Remove old messages
@@ -498,7 +501,7 @@ impl Component<Friend> for FriendList {
 
 impl Component<discord_endpoints::Message> for Chat {
     fn load_new_data(&mut self, data: Vec<discord_endpoints::Message>) {
-        let AuthedUser { id, username, avatar } = get_user_info();
+        let AuthedUser { id, username, avatar } = get_discord_user_info();
         for message in data.into_iter().rev() {
             if message.author.id == id {
                 self.append_message(message.content, None);

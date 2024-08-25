@@ -89,19 +89,3 @@ pub fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| Runtime::new().expect("Setting up tokio runtime needs to succeed."))
 }
-pub(crate)fn get_user_info() -> AuthedUser {
-
-    let (tx, rx) = oneshot::channel();
-    runtime().spawn(async move {
-        let mut headers = HashMap::new();
-        headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
-
-        let messages = ApiEndpoints::GetUser.call(headers).await.unwrap();
-        tx.send(messages).unwrap();
-    });
-    if let ApiResponse::User(user) = rx.blocking_recv().unwrap() {
-        user
-    } else {
-        panic!("User data not found.")
-    }
-}

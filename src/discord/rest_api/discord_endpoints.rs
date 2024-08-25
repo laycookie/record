@@ -1,7 +1,8 @@
 use std::{collections::HashMap, error::Error, io::ErrorKind};
 use reqwest::{header::HeaderValue, StatusCode};
 use serde::Deserialize;
-
+use tokio::sync::oneshot;
+use crate::{get_tokens, runtime};
 
 pub const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg/?v=10&encoding=json";
 
@@ -117,6 +118,22 @@ trait ApiRes: Sized + for<'a> Deserialize<'a> {
     }
 }
 
+//Temporary function, we will remove it once we have a proper way to make non-blocking API requests.
+pub(crate) fn get_discord_user_info() -> AuthedUser {
+    let (tx, rx) = oneshot::channel();
+    runtime().spawn(async move {
+        let mut headers = HashMap::new();
+        headers.insert("Authorization", get_tokens().unwrap().discord_token.unwrap());
+
+        let messages = ApiEndpoints::GetUser.call(headers).await.unwrap();
+        tx.send(messages).unwrap();
+    });
+    if let ApiResponse::User(user) = rx.blocking_recv().unwrap() {
+        user
+    } else {
+        panic!("User data not found.")
+    }
+}
 #[derive(Debug)]
 pub enum ApiResponse {
     Friends(Vec<Friend>),
@@ -147,10 +164,11 @@ pub struct Message {
     pub reactions: Option<Vec<Reaction>>,
     pub timestamp: String,
     pub tts: bool,
+    // pub mention_roles: Vec<String>,
+    // pub mentions: Vec<String>,
+    // type: u32,
 }
-// pub mention_roles: Vec<String>,
-// pub mentions: Vec<String>,
-// type: u32,
+
 #[derive(Deserialize, Debug)]
 pub struct Reaction {
     pub burst_colors: Vec<String>,

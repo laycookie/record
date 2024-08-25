@@ -70,29 +70,38 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
     let chat_area = Stack::new();
     chat_area.set_hexpand(true);
 
+
     let chat = Rc::new(RefCell::new(Chat::new()));
     let mut friend_list = FriendList::new(chat.clone(), chat_area.clone());
 
-    chat_area.add_named(&friend_list.friend_list_element, Some("friend_element"));
-    chat_area.add_named(&chat.borrow().chat_element, Some("chat_element"));
+
+    chat_area.add_child(&friend_list.friend_list_element);
+    chat_area.add_child(&chat.borrow().chat_element);
 
     // === Sidebar ===
     let sidebar = gtk4::Box::new(Orientation::Vertical, 20);
 
     //Guild Panel
-    let mut guild_bar = Guilds::new(chat_area.clone());
+    let mut guild_bar = Guilds::new(chat_area.clone(), chat.clone());
+    let scroll_guild = gtk4::ScrolledWindow::new();
+    scroll_guild.set_policy(gtk4::PolicyType::Never, gtk4::PolicyType::Automatic);
+    scroll_guild.set_vexpand(true);
+    scroll_guild.set_child(Some(&guild_bar.guilds_element));
+    sections.append(&scroll_guild);
 
     //==="Friend" Button===
-    let friend_box = gtk4::Box::new(Orientation::Vertical, 5);
+    let menu = gtk4::Box::new(Orientation::Vertical, 5);
     let friends = Button::new();
     friends.set_label("Friends");
-    friends.connect_clicked(clone!(
-        @weak chat_area =>
+    friends.connect_clicked({
+        let chat_area = chat_area.clone();
+        let friend_list = friend_list.friend_list_element.clone();
         move |_| {
-            chat_area.set_visible_child_name("friend_element");
-        }));
-
-    sidebar.append(&friends);
+            chat_area.set_visible_child(&friend_list);
+        }
+    });
+    menu.append(&friends);
+    sidebar.append(&menu);
 
     // DM list
     let mut channel_list = Channels::new(chat, chat_area.clone());
@@ -103,7 +112,7 @@ pub fn chat_page(parent_stack: Stack, token_data: LoginInfo, info: Option<Vec<Ap
 
     sidebar.append(&scroll);
     // ===
-    sections.append(&guild_bar.guilds_element);
+
     sections.append(&sidebar);
     sections.append(&chat_area);
 
