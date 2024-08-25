@@ -1,10 +1,8 @@
 use std::{collections::HashMap, error::Error, io::ErrorKind};
-use std::fs::File;
-use std::io::Read;
 use reqwest::{header::HeaderValue, StatusCode};
 use serde::Deserialize;
-use serde_json::{json, Value};
-use crate::get_tokens;
+use tokio::sync::oneshot;
+use crate::{get_tokens, runtime};
 
 pub const DISCORD_GATEWAY: &str = "wss://gateway.discord.gg/?v=10&encoding=json";
 
@@ -12,6 +10,8 @@ pub enum ApiEndpoints {
     FriendList,
     GetChannels(Option<String>),              // user ID
     GetMessages(String, Option<String>, u32), // Channel ID, Load before message, Message Limit
+    GetUser,
+    GetGuilds,
 }
 
 impl ApiEndpoints {
@@ -30,6 +30,8 @@ impl ApiEndpoints {
                     channel_id, before, message_limit
                 )
             }
+            Self::GetUser => "https://discord.com/api/v9/users/@me".into(),
+            Self::GetGuilds => "https://discord.com/api/v9/users/@me/guilds".into(),
         }
     }
 
@@ -53,6 +55,8 @@ impl ApiEndpoints {
                 }
             }
             ApiEndpoints::GetMessages(_, _, _) => client.get(self.get_url()),
+            ApiEndpoints::GetUser => client.get(self.get_url()),
+            ApiEndpoints::GetGuilds => client.get(self.get_url()),
         };
 
         for (key, value) in headers {
@@ -67,47 +71,23 @@ impl ApiEndpoints {
             return Err(Box::new(std::io::Error::new(ErrorKind::Other, "stuff")));
         }
 
-        let response_text: String = response.text().await?;
-
         Ok(match self {
-            Self::FriendList => {
-                let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
-                let a = a.as_array().unwrap();
-                let a: Vec<Friend> = a
-                    .iter()
-                    .map(|e| serde_json::from_value(e.clone()).unwrap())
-                    .collect();
+            Self::FriendList => ApiResponse::Friends(response.json::<Vec<Friend>>().await.unwrap()),
 
-                ApiResponse::Friends(a)
+            Self::GetChannels(recipient) => match recipient {
+                None => ApiResponse::Channels(response.json::<Vec<Channel>>().await.unwrap()),
+                Some(_) => ApiResponse::Channels(vec![response.json::<Channel>().await.unwrap()]),
             }
-            Self::GetChannels(_) => {
-                let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
-
-                match a.as_array() {
-                    Some(a) => {
-                        let arr = a
-                            .iter()
-                            .map(|e| serde_json::from_value(e.clone()).unwrap())
-                            .collect();
-                        ApiResponse::Channels(arr)
-                    }
-                    None => ApiResponse::Channels(vec![serde_json::from_value(a.clone()).unwrap()])
-                }
-            }
+            Self::GetGuilds => ApiResponse::Guilds(response.json::<Vec<Guilds>>().await.unwrap()),
             Self::GetMessages(_, _, _) => {
-                let a = serde_json::from_str::<Value>(response_text.as_str()).unwrap();
-
-                let a = a.as_array().unwrap();
-
-                let a: Vec<Message> = a
-                    .iter()
-                    .map(|e| serde_json::from_value(e.clone()).unwrap())
-                    .collect();
-                ApiResponse::Messeges(a)
+                ApiResponse::Messeges(response.json::<Vec<Message>>().await.unwrap())
             }
+
+            Self::GetUser => ApiResponse::User(response.json::<AuthedUser>().await.unwrap()),
         })
     }
 }
+
 
 trait ApiRes: Sized + for<'a> Deserialize<'a> {
     fn get_url() -> String;
@@ -138,31 +118,39 @@ trait ApiRes: Sized + for<'a> Deserialize<'a> {
     }
 }
 
+
 #[derive(Debug)]
 pub enum ApiResponse {
     Friends(Vec<Friend>),
     Channels(Vec<Channel>),
     Messeges(Vec<Message>),
+    User(AuthedUser),
+    Guilds(Vec<Guilds>),
 }
-
+#[derive(Deserialize, Debug)]
+pub struct AuthedUser {
+    pub id: String,
+    pub username: String,
+    pub avatar: Option<String>,
+}
 #[derive(Deserialize, Debug)]
 pub struct Message {
-    pub attachments: Vec<String>,
+    //pub attachments: Vec<String>,
     pub author: User,
     pub channel_id: String,
-    pub components: Vec<String>,
+    //pub components: Vec<String>,
     pub content: String,
     pub edited_timestamp: Option<String>,
-    pub embeds: Vec<u32>,
+    // pub embeds: Vec<u32>,
     pub flags: u32,
     pub id: String,
     pub mention_everyone: bool,
-    // pub mention_roles: Vec<String>,
-    // pub mentions: Vec<String>,
     pub pinned: bool,
     pub reactions: Option<Vec<Reaction>>,
     pub timestamp: String,
     pub tts: bool,
+    // pub mention_roles: Vec<String>,
+    // pub mentions: Vec<String>,
     // type: u32,
 }
 
@@ -194,39 +182,74 @@ pub struct CountDetails {
 pub struct Friend {
     pub id: String,
     pub nickname: Option<String>,
-    pub since: String,
-    // pub type: i32,
+    pub since: Option<String>,
+    #[serde(rename = "type")]
+    pub type_of: i32,
     pub user: User,
+    pub is_spam_request: bool,
+}
+
+
+#[derive(Deserialize, Debug)]
+pub struct Guilds {
+    pub icon: Option<String>,
+    pub id: String,
+    pub name: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct User {
     pub avatar: Option<String>,
-    pub avatar_decoration_data: Option<String>,
-    pub clan: Option<String>,
+    pub avatar_decoration_data: Option<AvatarDecoration>,
+    pub clan: Option<Clan>,
     pub discriminator: String,
     pub id: String,
+    pub public_flags: i32,
+    pub global_name: Option<String>,
     pub username: String,
 }
-
+#[derive(Deserialize, Debug)]
+pub struct AvatarDecoration {
+    pub asset: String,
+    pub expires_at: Option<i32>,
+    pub sku_id: String,
+}
 #[derive(Deserialize, Debug)]
 pub struct Channel {
-    pub flags: i32,
-    pub icon: Option<String>,
     pub id: String,
-    pub last_message_id: String,
-    pub name: Option<String>,
+    #[serde(rename = "type")]
+    pub type_of: i32,
+    pub last_message_id: Option<String>,
+    pub flags: i32,
     pub recipients: Vec<Recipient>,
+    pub name: Option<String>,
+    pub icon: Option<String>,
+    pub owner_id: Option<String>,
+    pub last_pin_timestamp: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Recipient {
-    pub avatar: String,
-    pub avatar_decoration_data: Option<String>,
-    pub clan: Option<String>,
-    pub discriminator: String,
-    pub global_name: Option<String>,
     pub id: String,
-    pub public_flags: i32,
     pub username: String,
+    pub global_name: Option<String>,
+    pub avatar: Option<String>,
+    pub avatar_decoration_data: Option<AvatarDecoration>,
+    pub discriminator: String,
+    pub public_flags: i32,
+    pub clan: Option<Clan>,
+    pub system: Option<bool>,
+    pub bot: Option<bool>,
+    pub accent_color: Option<u32>,
+    pub banner: Option<String>,
+    pub banner_color: Option<String>,
+    pub flags: Option<i32>,
+
+}
+#[derive(Deserialize, Debug)]
+pub struct Clan {
+    pub id: Option<String>,
+    pub identity_enabled: bool,
+    pub identity_guild_id: String,
+    pub tag: String,
 }

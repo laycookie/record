@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use gtk4::gio::Settings;
 use gtk4::{gdk, gio, glib, Application, ApplicationWindow, Stack};
 use gtk4::{prelude::*, CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION};
@@ -7,7 +8,9 @@ use std::path::Path;
 use std::rc::Rc;
 use std::sync::OnceLock;
 use tokio::runtime::Runtime;
+use tokio::sync::oneshot;
 use ui::pages::{chat_page, login_page};
+use crate::discord::rest_api::discord_endpoints::{ApiEndpoints, ApiResponse, AuthedUser};
 
 pub mod discord;
 pub mod ui;
