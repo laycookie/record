@@ -1,0 +1,43 @@
+{
+  description = "Vulkan lib";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";  # Specify the Nixpkgs version
+  };
+
+  outputs = { self, nixpkgs }:
+  let
+    system = "x86_64-linux";
+    pkgs = nixpkgs.legacyPackages.${system};
+  in
+  {
+		devShells.${system}.default = pkgs.mkShell {
+    	    packages = with pkgs; [
+    	      cargo
+    	      rustc
+    	      rust-analyzer
+    	      rustfmt
+    	      libxkbcommon
+    	      wayland
+			  vulkan-loader
+			  vulkan-validation-layers
+			  vulkan-tools
+
+				libappindicator
+    	    ];
+			LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
+				pkgs.libxkbcommon
+				pkgs.wayland
+				pkgs.vulkan-loader
+    		
+				pkgs.freetype
+				pkgs.fontconfig
+				pkgs.libinput
+				pkgs.qt5.full
+			];
+
+    	    RUST_BACKTRACE = "full";
+    	    WINIT_UNIX_BACKEND = "wayland";
+    	};
+	};
+}
