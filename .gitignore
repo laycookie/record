@@ -17,7 +17,7 @@ Cargo.lock
 .idea/
 
 # stores user data
-public/loginInfo
+public/LoginInfo
 public/Discord/Channels/*
 public/Discord/Users/*
 public/Discord/Guilds/*
