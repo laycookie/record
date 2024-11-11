@@ -7,8 +7,14 @@ use std::{
 
 use strum::EnumString;
 
+use discord::rest_api::Discord;
+
+pub mod discord {
+    pub mod rest_api;
+}
+
 #[derive(EnumString)]
-enum Platform {
+pub enum Platform {
     Discord,
     Unkown,
 }
@@ -54,4 +60,25 @@ impl AuthStore {
     pub fn is_empty(&self) -> bool {
         self.auths.is_empty()
     }
+}
+
+pub trait Messanger {
+    // Get data about the messanger
+    fn new(platform: Platform) -> impl Messanger {
+        match platform {
+            Platform::Discord => Discord {
+                token: "test".into(),
+            },
+            Platform::Unkown => todo!("temp"),
+        }
+    }
+
+    // Fetch contacts
+    fn get_contacts(); // Users from friendlists e.t.c.
+    fn get_conversations(); // Also known as DMs
+    fn get_guilds(); // Large groups that can have over a 100 people in them.
+
+    // Fetch data based on contacts
+    fn get_messanges();
+    fn get_profile();
 }
