@@ -6,8 +6,9 @@ build = "build.rs"
 
 [dependencies]
 slint = "1.8.0"
-strum = "0.26.3"
 daemonize = "0.5.0"
+secure-string="0.3.0"
+strum = "0.26.3"
 
 [build-dependencies]
 slint-build = "1.8.0"

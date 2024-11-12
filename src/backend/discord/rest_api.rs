@@ -1,7 +1,9 @@
+use secure_string::SecureString;
+
 use crate::backend::Messanger;
 
 pub struct Discord {
-    pub token: String,
+    pub token: SecureString,
 }
 
 impl Messanger for Discord {

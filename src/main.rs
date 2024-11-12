@@ -1,6 +1,7 @@
-use std::fs::File;
+use std::{borrow::BorrowMut, cell::RefCell, rc::Rc, str::FromStr, sync::Mutex};
 
-use backend::AuthStore;
+use backend::{AuthStore, Platform};
+#[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 
 mod backend;
@@ -8,7 +9,7 @@ mod backend;
 slint::include_modules!();
 fn main() {
     // Token Store
-    let etst = AuthStore::new("public/LoginInfo".into());
+    let auth_store = Rc::new(Mutex::new(AuthStore::new("public/LoginInfo".into())));
 
     #[cfg(not(debug_assertions))]
     {
@@ -32,11 +33,21 @@ fn main() {
     let ui = MainWindow::new().unwrap();
 
     let form = ui.global::<SignInGlobal>();
-    form.on_tokenSubmit(|test| {
-        println!("{:#?}", test);
+    form.on_tokenSubmit({
+        let auth_store = auth_store.clone();
+        move |string_auth| {
+            let platform = Platform::from_str(&string_auth.platform.to_string()).unwrap();
+            let token = string_auth.token.to_string();
+            auth_store
+                .lock()
+                .unwrap()
+                .add(Platform::from(platform), token);
+        }
     });
 
-    ui.set_page(Page::Main);
+    if !auth_store.lock().unwrap().is_empty() {
+        ui.set_page(Page::Main);
+    }
 
     ui.run().unwrap();
 }
