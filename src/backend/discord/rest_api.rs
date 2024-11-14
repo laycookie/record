@@ -1,5 +1,8 @@
+use std::collections::HashMap;
+
 use secure_string::SecureString;
 
+use super::super::utils::http_get;
 use crate::backend::Messanger;
 
 pub struct Discord {
@@ -7,8 +10,17 @@ pub struct Discord {
 }
 
 impl Messanger for Discord {
-    fn get_contacts() {
-        todo!()
+    async fn get_contacts(&self) {
+        let header = vec![("Authorization", self.token.clone().into_unsecure())];
+
+        let json = http_get::<serde_json::Value>(
+            "https://discord.com/api/v9/users/@me/relationships",
+            header,
+        )
+        .await
+        .unwrap();
+
+        println!("{:#?}", json);
     }
 
     fn get_conversations() {

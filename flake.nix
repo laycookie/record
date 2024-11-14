@@ -1,5 +1,5 @@
 {
-  description = "Vulkan lib";
+  description = "Front-end for chat backends";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";  # Specify the Nixpkgs version
@@ -17,13 +17,18 @@
     	      rustc
     	      rust-analyzer
     	      rustfmt
+
     	      libxkbcommon
     	      wayland
+
 			  vulkan-loader
 			  vulkan-validation-layers
 			  vulkan-tools
 
-				libappindicator
+			  libappindicator
+
+			  openssl
+			  pkgs.pkg-config
     	    ];
 			LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
 				pkgs.libxkbcommon
