@@ -86,7 +86,7 @@ impl Messenger for Discord {
     async fn get_profile(&self) -> Result<(), surf::Error> {
         let header = vec![("Authorization", self.token.clone().into_unsecure())];
         let json = http_request::<serde_json::Value>(
-            "https://discord.com/api/v9/users/@me/relationships",
+            "https://discord.com/api/v9/users/@me",
             header,
             Request_Type::GET,
         ).await?;
