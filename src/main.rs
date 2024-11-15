@@ -43,7 +43,7 @@ fn main() {
         let mut auths_to_remove = vec![];
         smol::block_on(async {
             for (i, auth) in auth_store.iter_mut().enumerate() {
-                let messenger = auth.get_messenger();
+                let messenger = auth.get_messanger();
                 if let Err(_) = messenger.get_contacts().await {
                     auths_to_remove.push(i);
                 } else {
