@@ -1,10 +1,11 @@
 use std::{borrow::BorrowMut, cell::RefCell, rc::Rc, str::FromStr, sync::Mutex};
 
 use auth::{AuthStore, Platform};
-use backend::Messanger;
+use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
+use crate::backend::utils::http_request;
 
 mod auth;
 mod backend;
@@ -42,8 +43,8 @@ fn main() {
         let mut auths_to_remove = vec![];
         smol::block_on(async {
             for (i, auth) in auth_store.iter_mut().enumerate() {
-                let messanger = auth.get_messanger();
-                if let Err(_) = messanger.get_contacts().await {
+                let messenger = auth.get_messenger();
+                if let Err(_) = messenger.get_contacts().await {
                     auths_to_remove.push(i);
                 } else {
                     ui.set_page(Page::Main)
@@ -65,7 +66,6 @@ fn main() {
             (*auth_store)
                 .borrow_mut()
                 .add(Platform::from(platform), token);
-
             // TODO: Check if the token is valid before exiting form
             ui.set_page(Page::Main);
         }

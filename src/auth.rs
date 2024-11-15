@@ -10,7 +10,7 @@ use secure_string::SecureString;
 use smol::io;
 use strum::EnumString;
 
-use crate::backend::{discord::rest_api::Discord, Messanger};
+use crate::backend::{discord::rest_api::Discord, Messenger};
 
 #[derive(Debug, Clone, EnumString)]
 pub enum Platform {
@@ -25,7 +25,7 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn get_messanger(&self) -> impl Messanger {
+    pub fn get_messanger(&self) -> impl Messenger {
         match self.platform {
             Platform::Discord => Discord {
                 token: self.token.clone(),
