@@ -17,7 +17,7 @@ pub trait Messanger {
     }
 
     // Fetch contacts
-    async fn get_contacts(&self); // Users from friendlists e.t.c.
+    async fn get_contacts(&self) -> Result<(), surf::Error>; // Users from friendlists e.t.c.
     fn get_conversations(); // Also known as DMs
     fn get_guilds(); // Large groups that can have over a 100 people in them.
 

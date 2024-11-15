@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, str::FromStr, sync::Mutex};
+use std::{borrow::BorrowMut, cell::RefCell, rc::Rc, str::FromStr, sync::Mutex};
 
 use auth::{AuthStore, Platform};
 use backend::Messanger;
@@ -10,6 +10,7 @@ mod auth;
 mod backend;
 
 slint::include_modules!();
+
 fn main() {
     // Token Store
     let auth_store = Rc::new(RefCell::new(AuthStore::new("public/LoginInfo".into())));
@@ -36,12 +37,22 @@ fn main() {
     let ui = MainWindow::new().unwrap();
 
     if !(*auth_store).borrow().is_empty() {
-        ui.set_page(Page::Main);
+        let mut auth_store = (*auth_store).borrow_mut();
 
-        let te = auth_store.borrow().get(0).get_messanger();
+        let mut auths_to_remove = vec![];
         smol::block_on(async {
-            te.get_contacts().await;
+            for (i, auth) in auth_store.iter_mut().enumerate() {
+                let messanger = auth.get_messanger();
+                if let Err(_) = messanger.get_contacts().await {
+                    auths_to_remove.push(i);
+                } else {
+                    ui.set_page(Page::Main)
+                };
+            }
         });
+
+        auths_to_remove.sort_by(|a, b| b.cmp(a));
+        auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
     }
 
     let form = ui.global::<SignInGlobal>();

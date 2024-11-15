@@ -10,17 +10,17 @@ pub struct Discord {
 }
 
 impl Messanger for Discord {
-    async fn get_contacts(&self) {
+    async fn get_contacts(&self) -> Result<(), surf::Error> {
         let header = vec![("Authorization", self.token.clone().into_unsecure())];
-
         let json = http_get::<serde_json::Value>(
             "https://discord.com/api/v9/users/@me/relationships",
             header,
         )
-        .await
-        .unwrap();
+        .await?;
 
         println!("{:#?}", json);
+
+        Ok(())
     }
 
     fn get_conversations() {

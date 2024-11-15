@@ -1,12 +1,13 @@
 use std::{
     fmt::Display,
-    fs::{File, OpenOptions},
-    io::{BufRead, BufReader, Write},
+    fs::{self, File, OpenOptions},
+    io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
     str::FromStr,
 };
 
 use secure_string::SecureString;
+use smol::io;
 use strum::EnumString;
 
 use crate::backend::{discord::rest_api::Discord, Messanger};
@@ -79,10 +80,18 @@ impl AuthStore {
         }
     }
 
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Auth> {
+        self.auths.iter_mut()
+    }
+
+    // TODO: Probably don't need this
     pub fn get(&self, i: usize) -> &Auth {
         self.auths.get(i).unwrap()
     }
 
+    // TODO: If something happens to the PC during a write to a file, the app
+    // has no way to recover, so we should prob. impliment some messures
+    // to prevent this in the future.
     pub fn add(&mut self, platform: Platform, token: String) {
         let auth = Auth {
             platform,
@@ -91,7 +100,31 @@ impl AuthStore {
         // Add to vec
         self.auths.push(auth.clone());
         // Add to File
+        self.file.seek(SeekFrom::End(0)).unwrap();
         write!(self.file, "{}\n", auth).unwrap();
+    }
+    pub fn remove(&mut self, i: usize) {
+        // remove in the vec
+        self.auths.remove(i);
+        // remove in the file
+        let mut reader = BufReader::new(&self.file);
+        reader.seek(SeekFrom::Start(0)).unwrap();
+
+        let mut lines = reader.lines().collect::<Vec<_>>();
+        println!("{:#?}", lines);
+        lines.remove(i).unwrap();
+        println!("{:#?}", lines);
+
+        // Prefferably I should just be writing to a new file, and then
+        // just swap the files when I'm finished writing, but realisticly
+        // there is no point in this type of redundncy at this point in the
+        // project.
+        self.file.seek(SeekFrom::Start(0)).unwrap();
+        self.file.set_len(0).unwrap();
+        for line in lines {
+            let line = line.unwrap();
+            writeln!(self.file, "{}", line).unwrap();
+        }
     }
 
     pub fn is_empty(&self) -> bool {
