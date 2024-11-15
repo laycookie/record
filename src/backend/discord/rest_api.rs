@@ -17,14 +17,14 @@ impl Messenger for Discord {
             header,
             Request_Type::GET,
         )
-        .await?;
+            .await?;
 
         println!("{:#?}", json);
 
         Ok(())
     }
 
-    async fn get_channels(&self, user_id : Option<String>) -> Result<(), surf::Error> {
+    async fn get_channels(&self, user_id: Option<String>) -> Result<(), surf::Error> {
         let mut header = vec![("Authorization", self.token.clone().into_unsecure())];
         match user_id {
             Some(user_id) => {
@@ -45,8 +45,6 @@ impl Messenger for Discord {
         }
 
 
-
-
         Ok(())
     }
 
@@ -65,7 +63,6 @@ impl Messenger for Discord {
     }
 
     async fn get_messanges(&self, channel_id: String, before_message: Option<String>, msg_limit: u32) -> Result<(), surf::Error> {
-
         let before = match before_message {
             Some(before_message) => format!("before={}&", before_message),
             None => "".into(),
