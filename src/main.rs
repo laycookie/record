@@ -38,26 +38,7 @@ fn main() {
 
     // === Sign in, if user has a token ===
     if !(*auth_store).borrow().is_empty() {
-        let mut auth_store = (*auth_store).borrow_mut();
-
-        let mut auths_to_remove = vec![];
-        smol::block_on(async {
-            for (i, auth) in auth_store.iter_mut().enumerate() {
-                let messenger = auth.get_messanger();
-
-                let convo = messenger.get_conversation().await;
-
-                println!("{:#?}", convo);
-                if let Err(_) = convo {
-                    auths_to_remove.push(i);
-                } else {
-                    ui.set_page(Page::Main)
-                };
-            }
-        });
-
-        auths_to_remove.sort_by(|a, b| b.cmp(a));
-        auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
+        fetch_data(&ui, &auth_store.clone());
     }
 
     // === Chat ===
@@ -77,15 +58,41 @@ fn main() {
         let ui = ui.clone_strong();
         let auth_store = auth_store.clone();
         move |string_auth| {
+            // Add auth to store
             let platform = Platform::from_str(&string_auth.platform.to_string()).unwrap();
             let token = string_auth.token.to_string();
             (*auth_store)
                 .borrow_mut()
                 .add(Platform::from(platform), token);
-            // TODO: Check if the token is valid before exiting form
-            ui.set_page(Page::Main);
+
+            // open & refresh ui
+            fetch_data(&ui, &auth_store);
         }
     });
 
     ui.run().unwrap();
+}
+
+// TODO: Rename to explain that it is refreshes ui
+fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
+    let mut auth_store = auth_store.borrow_mut();
+
+    let mut auths_to_remove = vec![];
+    smol::block_on(async {
+        for (i, auth) in auth_store.iter_mut().enumerate() {
+            let messenger = auth.get_messanger();
+
+            let convo = messenger.get_conversation().await;
+
+            println!("{:#?}", convo);
+            if let Err(_) = convo {
+                auths_to_remove.push(i);
+            } else {
+                ui.set_page(Page::Main)
+            };
+        }
+    });
+
+    auths_to_remove.sort_by(|a, b| b.cmp(a));
+    auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
 }
