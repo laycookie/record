@@ -111,9 +111,7 @@ impl AuthStore {
         reader.seek(SeekFrom::Start(0)).unwrap();
 
         let mut lines = reader.lines().collect::<Vec<_>>();
-        println!("{:#?}", lines);
         lines.remove(i).unwrap();
-        println!("{:#?}", lines);
 
         // Prefferably I should just be writing to a new file, and then
         // just swap the files when I'm finished writing, but realisticly

@@ -1,15 +1,24 @@
 import { HorizontalBox, ScrollView, Button, VerticalBox, TextEdit } from "std-widgets.slint";
 
-struct User {
+struct Conversation {
+	// MetaData
+	platform: string,
+	id: string,
+	
+	// Data
 	name: string,
+	image: string,
+
 }
 struct Guild {
 	pfp_path: string,
 }
 
+export global ChatGlobal {
+	in property <[Conversation]> conversations;
+}
+
 export component Chat {
-	property <[User]> users;
-	// property <[Guild]> guilds;
 	property <[Guild]> guilds: [
 		{pfp_path: "test"},
 		{pfp_path: "test"},
@@ -38,9 +47,9 @@ export component Chat {
 			}
 			ScrollView {
 				viewport-height: guilds.length * 64px;
-				for user[i] in users: Button {
+				for conversation[i] in ChatGlobal.conversations: Button {
 					y: i * 64px;
-					text: user.name;
+					text: conversation.name;
 				}
 			} 
 		}

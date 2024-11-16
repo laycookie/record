@@ -1,11 +1,10 @@
-use std::{borrow::BorrowMut, cell::RefCell, rc::Rc, str::FromStr, sync::Mutex};
+use std::{borrow::Borrow, cell::RefCell, fs::File, rc::Rc, str::FromStr};
 
 use auth::{AuthStore, Platform};
 use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
-use crate::backend::utils::http_request;
 
 mod auth;
 mod backend;
@@ -37,6 +36,7 @@ fn main() {
 
     let ui = MainWindow::new().unwrap();
 
+    // === Sign in, if user has a token ===
     if !(*auth_store).borrow().is_empty() {
         let mut auth_store = (*auth_store).borrow_mut();
 
@@ -44,7 +44,11 @@ fn main() {
         smol::block_on(async {
             for (i, auth) in auth_store.iter_mut().enumerate() {
                 let messenger = auth.get_messanger();
-                if let Err(_) = messenger.get_contacts().await {
+
+                let convo = messenger.get_conversation().await;
+
+                println!("{:#?}", convo);
+                if let Err(_) = convo {
                     auths_to_remove.push(i);
                 } else {
                     ui.set_page(Page::Main)
@@ -56,6 +60,18 @@ fn main() {
         auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
     }
 
+    // === Chat ===
+    let chat = ui.global::<ChatGlobal>();
+    let conversayions = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
+    chat.set_conversations(conversayions.clone().into());
+    conversayions.push(Conversation {
+        id: "test".into(),
+        image: "".into(),
+        name: "abc".into(),
+        platform: "Discord".into(),
+    });
+
+    // === Form ===
     let form = ui.global::<SignInGlobal>();
     form.on_tokenSubmit({
         let ui = ui.clone_strong();
