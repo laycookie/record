@@ -5,8 +5,6 @@ use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
-use surf::StatusCode;
-use crate::backend::discord::rest_api;
 
 mod auth;
 mod backend;
@@ -40,33 +38,14 @@ fn main() {
 
     // === Sign in, if user has a token ===
     if !(*auth_store).borrow().is_empty() {
-        let mut auth_store = (*auth_store).borrow_mut();
-
-        let mut auths_to_remove = vec![];
-        smol::block_on(async {
-            for (i, auth) in auth_store.iter_mut().enumerate() {
-                let messenger = auth.get_messanger();
-
-                let convo = messenger.get_conversation().await;
-
-                println!("{:#?}", convo);
-                if let Err(_) = convo {
-                    auths_to_remove.push(i);
-                } else {
-                    ui.set_page(Page::Main)
-                };
-            }
-        });
-
-        auths_to_remove.sort_by(|a, b| b.cmp(a));
-        auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
+        fetch_data(&ui, &auth_store.clone());
     }
 
     // === Chat ===
     let chat = ui.global::<ChatGlobal>();
-    let conversations = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
-    chat.set_conversations(conversations.clone().into());
-    conversations.push(Conversation {
+    let conversayions = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
+    chat.set_conversations(conversayions.clone().into());
+    conversayions.push(Conversation {
         id: "test".into(),
         image: "".into(),
         name: "abc".into(),
@@ -79,37 +58,41 @@ fn main() {
         let ui = ui.clone_strong();
         let auth_store = auth_store.clone();
         move |string_auth| {
+            // Add auth to store
             let platform = Platform::from_str(&string_auth.platform.to_string()).unwrap();
             let token = string_auth.token.to_string();
-            let token_check: Result<serde_json::Value, surf::Error> = smol::block_on({
-                let token = token.clone();
-                async {
-                    match platform {
-                        Platform::Discord => {
-                            let discord = rest_api::Discord { token: token.clone().into() };
-                            if let Err(_) = discord.get_profile().await {
-                                return Err(surf::Error::from_str(
-                                    StatusCode::Unauthorized,
-                                    "TODO: prob. an outdated token",
-                                ));
-                            }
-                            //Check if the token for this platform exists, delete and add the new one
-                            (*auth_store)
-                                .borrow_mut()
-                                .add(Platform::from(platform), token);
-                        }
-                        _ => return Err(surf::Error::from_str(
-                            StatusCode::Unauthorized,
-                            "TODO: prob. an outdated token",
-                        )),
-                    }
-                    Ok(serde_json::Value::Null)
-                }
-            });
-            if token_check.is_err() { return; }
-            ui.set_page(Page::Main);
+            (*auth_store)
+                .borrow_mut()
+                .add(Platform::from(platform), token);
+
+            // open & refresh ui
+            fetch_data(&ui, &auth_store);
         }
     });
 
     ui.run().unwrap();
+}
+
+// TODO: Rename to explain that it is refreshes ui
+fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
+    let mut auth_store = auth_store.borrow_mut();
+
+    let mut auths_to_remove = vec![];
+    smol::block_on(async {
+        for (i, auth) in auth_store.iter_mut().enumerate() {
+            let messenger = auth.get_messanger();
+
+            let convo = messenger.get_conversation().await;
+
+            println!("{:#?}", convo);
+            if let Err(_) = convo {
+                auths_to_remove.push(i);
+            } else {
+                ui.set_page(Page::Main)
+            };
+        }
+    });
+
+    auths_to_remove.sort_by(|a, b| b.cmp(a));
+    auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
 }
