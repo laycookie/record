@@ -5,6 +5,8 @@ use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
+use surf::StatusCode;
+use crate::backend::discord::rest_api;
 
 mod auth;
 mod backend;
@@ -62,9 +64,9 @@ fn main() {
 
     // === Chat ===
     let chat = ui.global::<ChatGlobal>();
-    let conversayions = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
-    chat.set_conversations(conversayions.clone().into());
-    conversayions.push(Conversation {
+    let conversations = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
+    chat.set_conversations(conversations.clone().into());
+    conversations.push(Conversation {
         id: "test".into(),
         image: "".into(),
         name: "abc".into(),
@@ -79,10 +81,32 @@ fn main() {
         move |string_auth| {
             let platform = Platform::from_str(&string_auth.platform.to_string()).unwrap();
             let token = string_auth.token.to_string();
-            (*auth_store)
-                .borrow_mut()
-                .add(Platform::from(platform), token);
-            // TODO: Check if the token is valid before exiting form
+            let token_check: Result<serde_json::Value, surf::Error> = smol::block_on({
+                let token = token.clone();
+                async {
+                    match platform {
+                        Platform::Discord => {
+                            let discord = rest_api::Discord { token: token.clone().into() };
+                            if let Err(_) = discord.get_profile().await {
+                                return Err(surf::Error::from_str(
+                                    StatusCode::Unauthorized,
+                                    "TODO: prob. an outdated token",
+                                ));
+                            }
+                            //Check if the token for this platform exists, delete and add the new one
+                            (*auth_store)
+                                .borrow_mut()
+                                .add(Platform::from(platform), token);
+                        }
+                        _ => return Err(surf::Error::from_str(
+                            StatusCode::Unauthorized,
+                            "TODO: prob. an outdated token",
+                        )),
+                    }
+                    Ok(serde_json::Value::Null)
+                }
+            });
+            if token_check.is_err() { return; }
             ui.set_page(Page::Main);
         }
     });

@@ -8,8 +8,7 @@ build = "build.rs"
 #Gui
 slint = "1.8.0"
 #Standard
-[target.'cfg(unix)'.dependencies]
-daemonize = "0.5.0"
+
 serde = "1.0.215"
 serde_json = "1.0.132"
 surf = "2.3.2"
@@ -21,3 +20,6 @@ strum = "0.26.3"
 
 [build-dependencies]
 slint-build = "1.8.0"
+
+[target.'cfg(unix)'.dependencies]
+daemonize = "0.5.0"
