@@ -43,7 +43,7 @@ fn main() {
     }
 
     // === Chat ===
-    chat_init(&ui, &auth_store);
+
 
     // === Form ===
     signin_init(&ui, &auth_store);
@@ -60,14 +60,26 @@ fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
         for (i, auth) in auth_store.iter_mut().enumerate() {
             let messenger = auth.get_messanger();
 
-            let convo = messenger.get_conversation().await;
+            // Fetch data
+            let profile = messenger.get_profile().await;
+            let conversations = messenger.get_conversation().await;
+            let contacts = messenger.get_contacts().await;
 
-            println!("{:#?}", convo);
-            if let Err(_) = convo {
+            // Check if any req failed
+            let (Ok(profile), Ok(conv), Ok(contact)) = (profile, conversations, contacts) else {
                 auths_to_remove.push(i);
-            } else {
-                ui.set_page(Page::Main)
+                continue;
             };
+
+            println!("{:#?}\n{:#?}\n{:#?}", profile, &conv, contact);
+            // Update ui
+            ui.set_page(Page::Main);
+            let chat = ui.global::<ChatGlobal>();
+            let conversation = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
+            chat.set_conversations(conversation.clone().into());
+            for convo in conv {
+                conversation.push(convo.into());
+            }
         }
     });
 
