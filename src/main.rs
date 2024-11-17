@@ -1,6 +1,5 @@
-use std::{borrow::Borrow, cell::RefCell, fs::File, rc::Rc, str::FromStr};
-
-use auth::{AuthStore, Platform};
+use std::{cell::RefCell, rc::Rc};
+use auth::{AuthStore};
 use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
@@ -10,6 +9,7 @@ use crate::ui::{chat_init, signin_init};
 mod auth;
 mod backend;
 mod ui;
+
 slint::include_modules!();
 
 fn main() {
