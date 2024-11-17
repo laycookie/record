@@ -1,13 +1,14 @@
-use std::{borrow::Borrow, cell::RefCell, fs::File, rc::Rc, str::FromStr};
-
-use auth::{AuthStore, Platform};
+use std::{cell::RefCell, rc::Rc};
+use auth::{AuthStore};
 use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
+use crate::ui::{chat_init, signin_init};
 
 mod auth;
 mod backend;
+mod ui;
 
 slint::include_modules!();
 
@@ -43,23 +44,9 @@ fn main() {
 
     // === Chat ===
 
-    // === Form ===
-    let form = ui.global::<SignInGlobal>();
-    form.on_tokenSubmit({
-        let ui = ui.clone_strong();
-        let auth_store = auth_store.clone();
-        move |string_auth| {
-            // Add auth to store
-            let platform = Platform::from_str(&string_auth.platform.to_string()).unwrap();
-            let token = string_auth.token.to_string();
-            (*auth_store)
-                .borrow_mut()
-                .add(Platform::from(platform), token);
 
-            // open & refresh ui
-            fetch_data(&ui, &auth_store);
-        }
-    });
+    // === Form ===
+    signin_init(&ui, &auth_store);
 
     ui.run().unwrap();
 }
@@ -87,12 +74,7 @@ fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
             println!("{:#?}\n{:#?}\n{:#?}", profile, &conv, contact);
             // Update ui
             ui.set_page(Page::Main);
-            let chat = ui.global::<ChatGlobal>();
-            let conversation = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
-            chat.set_conversations(conversation.clone().into());
-            for convo in conv {
-                conversation.push(convo.into());
-            }
+            chat_init(ui, conv);
         }
     });
 
