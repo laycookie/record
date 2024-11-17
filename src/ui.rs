@@ -1,9 +1,11 @@
+use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::str::FromStr;
 use slint::ComponentHandle;
 use crate::auth::{AuthStore, Platform};
 use crate::{fetch_data, ChatGlobal, Conversation, MainWindow, SignInGlobal};
+use crate::backend::Messenger;
 
 pub fn signin_init(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
     let form = ui.global::<SignInGlobal>();
@@ -23,15 +25,11 @@ pub fn signin_init(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
         }
     });
 }
-pub fn chat_init(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
-    // === Chat ===
+pub fn chat_init(ui: &MainWindow, conv: Vec<impl Into<Conversation>>) {
     let chat = ui.global::<ChatGlobal>();
-    let conversations = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
-    chat.set_conversations(conversations.clone().into());
-    conversations.push(Conversation {
-        id: "test".into(),
-        image: "".into(),
-        name: "abc".into(),
-        platform: "Discord".into(),
-    });
+    let conversation = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
+    chat.set_conversations(conversation.clone().into());
+    for convo in conv {
+        conversation.push(convo.into());
+    }
 }

@@ -74,12 +74,7 @@ fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
             println!("{:#?}\n{:#?}\n{:#?}", profile, &conv, contact);
             // Update ui
             ui.set_page(Page::Main);
-            let chat = ui.global::<ChatGlobal>();
-            let conversation = Rc::new(slint::VecModel::<Conversation>::from(vec![]));
-            chat.set_conversations(conversation.clone().into());
-            for convo in conv {
-                conversation.push(convo.into());
-            }
+            chat_init(ui, conv);
         }
     });
 
