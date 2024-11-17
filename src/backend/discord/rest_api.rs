@@ -2,7 +2,7 @@ use secure_string::SecureString;
 
 use super::{
     super::utils::{http_request, Request_Type},
-    json_structs::Channel,
+    json_structs::{Channel, Friend, Profile},
 };
 use crate::backend::Messenger;
 
@@ -11,9 +11,10 @@ pub struct Discord {
 }
 
 impl Messenger for Discord {
-    async fn get_contacts(&self) -> Result<serde_json::Value, surf::Error> {
+    type Contacts = Vec<Friend>;
+    async fn get_contacts(&self) -> Result<Self::Contacts, surf::Error> {
         let header = vec![("Authorization", self.token.clone().into_unsecure())];
-        Ok(http_request::<serde_json::Value>(
+        Ok(http_request::<Self::Contacts>(
             "https://discord.com/api/v9/users/@me/relationships",
             header,
             Request_Type::GET,
@@ -21,12 +22,12 @@ impl Messenger for Discord {
         .await?)
     }
 
-    type Conversations = Vec<Channel>;
+    type Conversation = Channel;
     // type Conversations = serde_json::Value;
-    async fn get_conversation(&self) -> Result<Self::Conversations, surf::Error> {
+    async fn get_conversation(&self) -> Result<Vec<Self::Conversation>, surf::Error> {
         // List of DMs
         let header = vec![("Authorization", self.token.clone().into_unsecure())];
-        Ok(http_request::<Self::Conversations>(
+        Ok(http_request::<Vec<Self::Conversation>>(
             "https://discord.com/api/v10/users/@me/channels",
             header,
             Request_Type::GET,
@@ -34,14 +35,9 @@ impl Messenger for Discord {
         .await?)
     }
 
-    async fn get_guilds(&self) -> Result<serde_json::Value, surf::Error> {
-        let header = vec![("Authorization", self.token.clone().into_unsecure())];
-        Ok(http_request::<serde_json::Value>(
-            "https://discord.com/api/v9/users/@me/relationships",
-            header,
-            Request_Type::GET,
-        )
-        .await?)
+    type Guilds = Vec<serde_json::Value>;
+    async fn get_guilds(&self) -> Result<Self::Guilds, surf::Error> {
+        todo!();
     }
 
     async fn get_messanges(
@@ -63,9 +59,10 @@ impl Messenger for Discord {
         Ok(http_request::<serde_json::Value>(&link, header, Request_Type::GET).await?)
     }
 
-    async fn get_profile(&self) -> Result<serde_json::Value, surf::Error> {
+    type Profile = Profile;
+    async fn get_profile(&self) -> Result<Self::Profile, surf::Error> {
         let header = vec![("Authorization", self.token.clone().into_unsecure())];
-        Ok(http_request::<serde_json::Value>(
+        Ok(http_request::<Self::Profile>(
             "https://discord.com/api/v9/users/@me",
             header,
             Request_Type::GET,

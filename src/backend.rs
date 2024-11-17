@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use discord::rest_api::Discord;
 
 use crate::auth::{Auth, Platform};
+use crate::Conversation;
 
 pub mod utils;
 pub mod discord {
@@ -20,10 +21,12 @@ pub trait Messenger {
     }
 
     // Fetch contacts
-    async fn get_contacts(&self) -> Result<serde_json::Value, surf::Error>; // Users from friendlists e.t.c.
-    type Conversations: Debug;
-    async fn get_conversation(&self) -> Result<Self::Conversations, surf::Error>; // List of DMs
-    async fn get_guilds(&self) -> Result<serde_json::Value, surf::Error>; // Large groups that can have over a 100 people in them.
+    type Contacts: Debug;
+    async fn get_contacts(&self) -> Result<Self::Contacts, surf::Error>; // Users from friendlists e.t.c.
+    type Conversation: Debug + Into<Conversation>;
+    async fn get_conversation(&self) -> Result<Vec<Self::Conversation>, surf::Error>; // List of DMs
+    type Guilds: Debug;
+    async fn get_guilds(&self) -> Result<Self::Guilds, surf::Error>; // Large groups that can have over a 100 people in them.
 
     // Fetch data based on contacts
     async fn get_messanges(
@@ -32,5 +35,7 @@ pub trait Messenger {
         before_message: Option<String>,
         msg_limit: u32,
     ) -> Result<serde_json::Value, surf::Error>;
-    async fn get_profile(&self) -> Result<serde_json::Value, surf::Error>;
+
+    type Profile: Debug;
+    async fn get_profile(&self) -> Result<Self::Profile, surf::Error>;
 }
