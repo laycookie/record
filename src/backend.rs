@@ -1,5 +1,5 @@
 use std::fmt::Debug;
-
+use secure_string::SecureString;
 use discord::rest_api::Discord;
 
 use crate::auth::{Auth, Platform};
@@ -12,15 +12,6 @@ pub mod discord {
 }
 
 pub trait Messenger {
-    // Get data about the messanger TODO: Figure out if we even need it here
-    fn new(auth: Auth) -> impl Messenger {
-        match auth.platform {
-            Platform::Discord => Discord { token: auth.token },
-            Platform::Unkown => todo!("Handle unkown messanger"),
-        }
-    }
-
-    // Fetch contacts
     type Contacts: Debug;
     async fn get_contacts(&self) -> Result<Self::Contacts, surf::Error>; // Users from friendlists e.t.c.
     type Conversation: Debug + Into<Conversation>;

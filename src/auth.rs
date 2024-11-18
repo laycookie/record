@@ -17,6 +17,14 @@ pub enum Platform {
     Discord,
     Unkown,
 }
+impl Platform {
+    pub fn get_messanger(&self, token: SecureString) -> impl Messenger {
+        match self {
+            Platform::Discord => Discord { token },
+            Platform::Unkown => todo!(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Auth {
