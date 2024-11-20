@@ -1,10 +1,10 @@
-use std::{cell::RefCell, rc::Rc};
-use auth::{AuthStore};
+use crate::ui::{chat_init, signin_init};
+use auth::AuthStore;
 use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
-use crate::ui::{chat_init, signin_init};
+use std::{cell::RefCell, rc::Rc};
 
 mod auth;
 mod backend;
@@ -44,7 +44,6 @@ fn main() {
 
     // === Chat ===
 
-
     // === Form ===
     signin_init(&ui, &auth_store);
 
@@ -65,6 +64,7 @@ fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
             let conversations = messenger.get_conversation().await;
             let contacts = messenger.get_contacts().await;
 
+            println!("{:#?}", conversations);
             // Check if any req failed
             let (Ok(profile), Ok(conv), Ok(contact)) = (profile, conversations, contacts) else {
                 auths_to_remove.push(i);

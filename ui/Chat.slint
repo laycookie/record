@@ -48,6 +48,7 @@ export component Chat {
 			ScrollView {
 				viewport-height: guilds.length * 64px;
 				for conversation[i] in ChatGlobal.conversations: Button {
+					icon: @image-url("../public/Assets/avatar.png");
 					y: i * 64px;
 					text: conversation.name;
 				}

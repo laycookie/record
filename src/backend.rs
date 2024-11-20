@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
 use discord::rest_api::Discord;
+use secure_string::SecureString;
 
 use crate::auth::{Auth, Platform};
 use crate::Conversation;
@@ -13,9 +14,9 @@ pub mod discord {
 
 pub trait Messenger {
     // Get data about the messanger TODO: Figure out if we even need it here
-    fn new(auth: Auth) -> impl Messenger {
-        match auth.platform {
-            Platform::Discord => Discord { token: auth.token },
+    fn new(platform: Platform, token: SecureString) -> impl Messenger {
+        match platform {
+            Platform::Discord => Discord { token },
             Platform::Unkown => todo!("Handle unkown messanger"),
         }
     }

@@ -7,15 +7,23 @@ use std::{
 };
 
 use secure_string::SecureString;
-use smol::io;
-use strum::EnumString;
+use strum::{Display, EnumString};
 
 use crate::backend::{discord::rest_api::Discord, Messenger};
 
-#[derive(Debug, Clone, EnumString)]
+#[derive(Debug, Clone, EnumString, Display)]
 pub enum Platform {
     Discord,
     Unkown,
+}
+
+impl Platform {
+    fn get_messanger(&self, token: SecureString) -> impl Messenger {
+        match self {
+            Platform::Discord => Discord { token },
+            Platform::Unkown => todo!(),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -26,20 +34,14 @@ pub struct Auth {
 
 impl Auth {
     pub fn get_messanger(&self) -> impl Messenger {
-        match self.platform {
-            Platform::Discord => Discord {
-                token: self.token.clone(),
-            },
-            Platform::Unkown => todo!(),
-        }
+        self.platform.get_messanger(self.token.clone())
     }
 }
 
 impl Display for Auth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token = self.token.clone().into_unsecure(); // TODO: Zeroize
-        let r = write!(f, "{:?}:{}", self.platform, token);
-        r
+        write!(f, "{:?}:{}", self.platform, token)
     }
 }
 

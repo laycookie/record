@@ -1,6 +1,7 @@
-use crate::Conversation;
+use crate::{auth::Platform, Conversation};
 use serde::Deserialize;
-use slint::SharedString;
+use serde_repr::Deserialize_repr;
+use slint::{format, SharedString};
 
 #[derive(Deserialize, Debug)]
 pub struct Message {
@@ -67,11 +68,31 @@ pub struct User {
     pub username: String,
 }
 
+#[derive(Debug, Deserialize_repr)]
+#[repr(u8)]
+pub enum ChannelTypes {
+    GuildText,
+    DM,
+    GuildVoice,
+    GroupDM,
+    GuildCategory,
+    GuildAnnouncement,
+    AnnouncementThread,
+    PublicThread,
+    PrivateThread,
+    GuildStageVoice,
+    GuildDirectory,
+    GuildForum,
+    GuildMedia,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Channel {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub channel_type: ChannelTypes,
     pub flags: i32,
     pub icon: Option<String>,
-    pub id: String,
     pub last_message_id: String,
     pub name: Option<String>,
     pub recipients: Vec<Recipient>,
@@ -79,18 +100,34 @@ pub struct Channel {
 
 impl Into<Conversation> for Channel {
     fn into(self) -> Conversation {
+        let id = self.id.clone();
         let name: SharedString;
-        if self.recipients.len() == 1 {
-            name = self.recipients[0].username.clone().into();
-        } else {
-            name = self.name.expect("TODO: Solve this issue").into();
-        }
+        let image: SharedString;
+
+        match self.channel_type {
+            ChannelTypes::DM => {
+                name = self.recipients[0]
+                    .global_name
+                    .clone()
+                    .unwrap_or(self.recipients[0].username.clone())
+                    .into();
+
+                let avatar_id = self.recipients[0].avatar.clone();
+
+                if let Some(avatar) = avatar_id {
+                    image = format!("public/Discord/{}/{}", id, avatar)
+                } else {
+                    image = "public/Assets/avatar.png".into();
+                }
+            }
+            _ => todo!(),
+        };
 
         Conversation {
             id: self.id.into(),
-            image: "testing".into(),
+            image,
             name,
-            platform: "Discord".into(),
+            platform: Platform::Discord.to_string().into(),
         }
     }
 }
