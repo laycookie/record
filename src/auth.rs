@@ -86,7 +86,7 @@ impl AuthStore {
 
     pub fn retain_and_rewrite<F>(&mut self, f: F) where F: FnMut(&Auth) -> bool, {
         self.auths.retain(f);
-        self.remove();
+        self.file_sync();
     }
     // TODO: Probably don't need this
     pub fn get(&self, i: usize) -> &Auth {
@@ -108,7 +108,11 @@ impl AuthStore {
         write!(self.file, "{}\n", auth).unwrap();
     }
 
-    pub fn remove(&mut self) {
+    fn file_sync(&mut self) {
+        // Prefferably I should just be writing to a new file, and then
+        // just swap the files when I'm finished writing, but realisticly
+        // there is no point in this type of redundncy at this point in the
+        // project.
         self.file.seek(SeekFrom::Start(0)).unwrap();
         self.file.set_len(0).unwrap();
         self.auths.iter().for_each(|auth| { writeln!(self.file, "{}", auth).unwrap(); });

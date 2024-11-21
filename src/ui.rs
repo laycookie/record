@@ -20,7 +20,7 @@ pub fn signin_init(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
                 let token = string_auth.token.to_string();
                 // open & refresh ui
                 if let Err(error) = fetch_data(platform.clone(), SecureString::from_str(&token.clone()).unwrap(), &ui) {
-                    eprintln!("Error: {}", error);
+                    eprintln!("Error Status: {}", error.status());
                     return;
                 }
                 //Store token if successful fetch

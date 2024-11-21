@@ -49,8 +49,8 @@ fn main() {
                     eprintln!("Token expired");
                     false
                 }
-                _ => {
-                    eprintln!("There has been an issue with internet connection");
+                Err(error) => {
+                    eprintln!("Error Status: {}", error.status());
                     true
                 }
             }
