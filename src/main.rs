@@ -8,6 +8,7 @@ use std::{cell::RefCell, rc::Rc};
 
 mod auth;
 mod backend;
+mod network_req;
 mod ui;
 
 slint::include_modules!();

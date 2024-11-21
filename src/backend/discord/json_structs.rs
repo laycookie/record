@@ -1,4 +1,6 @@
-use crate::{auth::Platform, Conversation};
+use std::path::{Path, PathBuf};
+
+use crate::{auth::Platform, network_req::cache_download, Conversation};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 use slint::{format, SharedString};
@@ -100,31 +102,46 @@ pub struct Channel {
 
 impl Into<Conversation> for Channel {
     fn into(self) -> Conversation {
-        let id = self.id.clone();
-        let name: SharedString;
-        let image: SharedString;
+        let id: SharedString = self.id.clone().into();
+        let name;
+        let image;
 
         match self.channel_type {
             ChannelTypes::DM => {
-                name = self.recipients[0]
+                let recipient = &self.recipients[0];
+                name = recipient
                     .global_name
                     .clone()
-                    .unwrap_or(self.recipients[0].username.clone())
+                    .unwrap_or(recipient.username.clone())
                     .into();
 
-                let avatar_id = self.recipients[0].avatar.clone();
+                let avatar_id = recipient.avatar.clone();
 
-                if let Some(avatar) = avatar_id {
-                    image = format!("public/Discord/{}/{}", id, avatar)
+                if let Some(avatar_id) = avatar_id {
+                    let url = format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                        recipient.id, avatar_id
+                    );
+                    let path = format!("public/Discord/Users/{}", id).to_string();
+                    let file_name = format!("{}.png", avatar_id);
+
+                    // TODO: Make this proper async
+                    smol::block_on(async {
+                        cache_download(&url, path.clone().into(), &file_name).await;
+                    });
+
+                    let p = format!("{}/{}", path, file_name);
+                    image = slint::Image::load_from_path(Path::new(&p.to_string())).unwrap();
                 } else {
-                    image = "public/Assets/avatar.png".into();
+                    image = slint::Image::load_from_path(Path::new("public/Assets/avatar.png"))
+                        .unwrap();
                 }
             }
             _ => todo!(),
         };
 
         Conversation {
-            id: self.id.into(),
+            id,
             image,
             name,
             platform: Platform::Discord.to_string().into(),
