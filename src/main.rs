@@ -7,7 +7,6 @@ use daemonize::Daemonize;
 use slint::ComponentHandle;
 use surf::StatusCode;
 use crate::auth::Platform;
-use crate::backend::discord::json_structs::Profile;
 use crate::ui::{chat_init, signin_init};
 
 mod auth;
@@ -18,7 +17,7 @@ slint::include_modules!();
 
 fn main() {
     // Token Store
-    let auth_store = Rc::new(RefCell::new(AuthStore::new("public/LoginInfo".into())));
+    let mut auth_store = AuthStore::new("public/LoginInfo".into());
 
     #[cfg(not(debug_assertions))]
     {
@@ -42,30 +41,29 @@ fn main() {
     let ui = MainWindow::new().unwrap();
 
     // === Sign in, if user has a token ===
-    if !(*auth_store).borrow().is_empty() {
-        let mut auth_store = (*auth_store).borrow_mut();
-        let mut auths_to_remove = vec![];
-        for (i, auth) in auth_store.iter_mut().enumerate() {
+    if !auth_store.is_empty() {
+        auth_store.retain_and_rewrite(|auth| {
             match fetch_data(auth.platform.clone(), auth.token.clone(), &ui) {
-                Ok(..) => (),
-                (Err(error)) if error.status() == StatusCode::Unauthorized => {
+                Ok(..) => true,
+                Err(error) if error.status() == StatusCode::Unauthorized => {
                     eprintln!("Token expired");
-                    auths_to_remove.push(i);
+                    false
                 }
-                _ => eprintln!("There has been an issue with internet connection"),
+                _ => {
+                    eprintln!("There has been an issue with internet connection");
+                    true
+                }
             }
-        }
-        auths_to_remove.sort_by(|a, b| b.cmp(a));
-        auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
+        });
     }
-    signin_init(&ui, &auth_store);
 
+    signin_init(&ui, &Rc::new(RefCell::new(auth_store)));
     ui.run().unwrap();
 }
 
 // TODO: Rename to explain that it is refreshes ui
 fn fetch_data(platform: Platform, token: SecureString, ui: &MainWindow) ->
-(Result<(), surf::Error>) {
+Result<(), surf::Error> {
     smol::block_on(async {
         let messenger = platform.get_messanger(token);
         let profile = messenger.get_profile().await?;

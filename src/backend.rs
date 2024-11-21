@@ -1,8 +1,4 @@
 use std::fmt::Debug;
-use secure_string::SecureString;
-use discord::rest_api::Discord;
-
-use crate::auth::{Auth, Platform};
 use crate::Conversation;
 
 pub mod utils;

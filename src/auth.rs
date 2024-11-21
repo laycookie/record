@@ -1,15 +1,12 @@
 use std::{
     fmt::Display,
-    fs::{self, File, OpenOptions},
+    fs::{File, OpenOptions},
     io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
     str::FromStr,
 };
-
 use secure_string::SecureString;
-use smol::io;
 use strum::EnumString;
-
 use crate::backend::{discord::rest_api::Discord, Messenger};
 
 #[derive(Debug, Clone, EnumString)]
@@ -66,7 +63,6 @@ impl AuthStore {
             .unwrap();
 
         let buf_reader = BufReader::new(&auth_file);
-
         let mut auths = vec![];
         for auth_line in buf_reader.lines() {
             let auth_line = auth_line.unwrap(); // For now we don't handle this
@@ -88,10 +84,10 @@ impl AuthStore {
         }
     }
 
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Auth> {
-        self.auths.iter_mut()
+    pub fn retain_and_rewrite<F>(&mut self, f: F) where F: FnMut(&Auth) -> bool, {
+        self.auths.retain(f);
+        self.remove();
     }
-
     // TODO: Probably don't need this
     pub fn get(&self, i: usize) -> &Auth {
         self.auths.get(i).unwrap()
@@ -111,26 +107,11 @@ impl AuthStore {
         self.file.seek(SeekFrom::End(0)).unwrap();
         write!(self.file, "{}\n", auth).unwrap();
     }
-    pub fn remove(&mut self, i: usize) {
-        // remove in the vec
-        self.auths.remove(i);
-        // remove in the file
-        let mut reader = BufReader::new(&self.file);
-        reader.seek(SeekFrom::Start(0)).unwrap();
 
-        let mut lines = reader.lines().collect::<Vec<_>>();
-        lines.remove(i).unwrap();
-
-        // Prefferably I should just be writing to a new file, and then
-        // just swap the files when I'm finished writing, but realisticly
-        // there is no point in this type of redundncy at this point in the
-        // project.
+    pub fn remove(&mut self) {
         self.file.seek(SeekFrom::Start(0)).unwrap();
         self.file.set_len(0).unwrap();
-        for line in lines {
-            let line = line.unwrap();
-            writeln!(self.file, "{}", line).unwrap();
-        }
+        self.auths.iter().for_each(|auth| { writeln!(self.file, "{}", auth).unwrap(); });
     }
 
     pub fn is_empty(&self) -> bool {

@@ -1,11 +1,10 @@
-use std::any::Any;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::str::FromStr;
 use secure_string::SecureString;
 use slint::ComponentHandle;
 use crate::auth::{AuthStore, Platform};
-use crate::{fetch_data, ChatGlobal, Conversation, MainWindow, Page, SignInGlobal};
+use crate::{fetch_data, ChatGlobal, Conversation, MainWindow, SignInGlobal};
 use crate::backend::Messenger;
 
 pub fn signin_init(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {

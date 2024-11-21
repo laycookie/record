@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use serde::de::DeserializeOwned;
-use surf::{Error, StatusCode};
+use surf::StatusCode;
 
 
 pub enum Request_Type {
