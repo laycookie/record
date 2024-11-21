@@ -5,11 +5,13 @@ use std::{
     path::PathBuf,
     str::FromStr,
 };
+
 use secure_string::SecureString;
-use strum::EnumString;
+use strum::{Display, EnumString};
+
 use crate::backend::{discord::rest_api::Discord, Messenger};
 
-#[derive(Debug, Clone, EnumString)]
+#[derive(Debug, Clone, EnumString, Display)]
 pub enum Platform {
     Discord,
     Unkown,
@@ -31,20 +33,14 @@ pub struct Auth {
 
 impl Auth {
     pub fn get_messanger(&self) -> impl Messenger {
-        match self.platform {
-            Platform::Discord => Discord {
-                token: self.token.clone(),
-            },
-            Platform::Unkown => todo!(),
-        }
+        self.platform.get_messanger(self.token.clone())
     }
 }
 
 impl Display for Auth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token = self.token.clone().into_unsecure(); // TODO: Zeroize
-        let r = write!(f, "{:?}:{}", self.platform, token);
-        r
+        write!(f, "{:?}:{}", self.platform, token)
     }
 }
 
@@ -63,6 +59,7 @@ impl AuthStore {
             .unwrap();
 
         let buf_reader = BufReader::new(&auth_file);
+
         let mut auths = vec![];
         for auth_line in buf_reader.lines() {
             let auth_line = auth_line.unwrap(); // For now we don't handle this
@@ -84,10 +81,14 @@ impl AuthStore {
         }
     }
 
-    pub fn retain_and_rewrite<F>(&mut self, f: F) where F: FnMut(&Auth) -> bool, {
+    pub fn retain_and_rewrite<F>(&mut self, f: F)
+    where
+        F: FnMut(&Auth) -> bool,
+    {
         self.auths.retain(f);
         self.file_sync();
     }
+
     // TODO: Probably don't need this
     pub fn get(&self, i: usize) -> &Auth {
         self.auths.get(i).unwrap()

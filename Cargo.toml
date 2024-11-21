@@ -12,6 +12,7 @@ secure-string="0.3.0"
 strum = "0.26.3"
 #Standard
 serde = "1.0.215"
+serde_repr = "0.1.19"
 serde_json = "1.0.132"
 surf = "2.3.2"
 smol = "2.0.2"

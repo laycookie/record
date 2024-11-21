@@ -7,7 +7,7 @@ struct Conversation {
 	
 	// Data
 	name: string,
-	image: string,
+	image: image,
 
 }
 struct Guild {
@@ -48,6 +48,7 @@ export component Chat {
 			ScrollView {
 				viewport-height: guilds.length * 64px;
 				for conversation[i] in ChatGlobal.conversations: Button {
+					icon: conversation.image;
 					y: i * 64px;
 					text: conversation.name;
 				}

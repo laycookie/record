@@ -1,6 +1,9 @@
-use crate::Conversation;
+use std::path::{Path, PathBuf};
+
+use crate::{auth::Platform, network_req::cache_download, Conversation};
 use serde::Deserialize;
-use slint::SharedString;
+use serde_repr::Deserialize_repr;
+use slint::{format, SharedString};
 
 #[derive(Deserialize, Debug)]
 pub struct Message {
@@ -67,11 +70,31 @@ pub struct User {
     pub username: String,
 }
 
+#[derive(Debug, Deserialize_repr)]
+#[repr(u8)]
+pub enum ChannelTypes {
+    GuildText,
+    DM,
+    GuildVoice,
+    GroupDM,
+    GuildCategory,
+    GuildAnnouncement,
+    AnnouncementThread,
+    PublicThread,
+    PrivateThread,
+    GuildStageVoice,
+    GuildDirectory,
+    GuildForum,
+    GuildMedia,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct Channel {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub channel_type: ChannelTypes,
     pub flags: i32,
     pub icon: Option<String>,
-    pub id: String,
     pub last_message_id: String,
     pub name: Option<String>,
     pub recipients: Vec<Recipient>,
@@ -79,18 +102,49 @@ pub struct Channel {
 
 impl Into<Conversation> for Channel {
     fn into(self) -> Conversation {
-        let name: SharedString;
-        if self.recipients.len() == 1 {
-            name = self.recipients[0].username.clone().into();
-        } else {
-            name = self.name.expect("TODO: Solve this issue").into();
-        }
+        let id: SharedString = self.id.clone().into();
+        let name;
+        let image;
+
+        match self.channel_type {
+            ChannelTypes::DM => {
+                let recipient = &self.recipients[0];
+                name = recipient
+                    .global_name
+                    .clone()
+                    .unwrap_or(recipient.username.clone())
+                    .into();
+
+                let avatar_id = recipient.avatar.clone();
+
+                if let Some(avatar_id) = avatar_id {
+                    let url = format!(
+                        "https://cdn.discordapp.com/avatars/{}/{}.png?size=80",
+                        recipient.id, avatar_id
+                    );
+                    let path = format!("public/Discord/Users/{}", id).to_string();
+                    let file_name = format!("{}.png", avatar_id);
+
+                    // TODO: Make this proper async
+                    smol::block_on(async {
+                        cache_download(&url, path.clone().into(), &file_name).await;
+                    });
+
+                    let p = format!("{}/{}", path, file_name);
+                    image = slint::Image::load_from_path(Path::new(&p.to_string())).unwrap();
+                } else {
+                    image = slint::Image::load_from_path(Path::new("public/Assets/avatar.png"))
+                        .unwrap();
+                }
+            }
+            _ => todo!(),
+        };
 
         Conversation {
-            id: self.id.into(),
-            image: "testing".into(),
+            id,
+            image,
             name,
-            platform: "Discord".into(),
+            platform: Platform::Discord.to_string().into(),
         }
     }
 }

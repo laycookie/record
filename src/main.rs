@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 use secure_string::SecureString;
-use auth::{AuthStore};
+use auth::AuthStore;
 use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
@@ -11,6 +11,7 @@ use crate::ui::{chat_init, signin_init};
 
 mod auth;
 mod backend;
+mod network_req;
 mod ui;
 
 slint::include_modules!();

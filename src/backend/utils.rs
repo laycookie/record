@@ -1,7 +1,6 @@
 use serde::de::DeserializeOwned;
 use surf::StatusCode;
 
-
 pub enum Request_Type {
     GET,
     POST,
