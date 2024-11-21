@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    fs::{self, File, OpenOptions},
+    fs::{File, OpenOptions},
     io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
     str::FromStr,
@@ -16,9 +16,8 @@ pub enum Platform {
     Discord,
     Unkown,
 }
-
 impl Platform {
-    fn get_messanger(&self, token: SecureString) -> impl Messenger {
+    pub fn get_messanger(&self, token: SecureString) -> impl Messenger {
         match self {
             Platform::Discord => Discord { token },
             Platform::Unkown => todo!(),
@@ -82,8 +81,12 @@ impl AuthStore {
         }
     }
 
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Auth> {
-        self.auths.iter_mut()
+    pub fn retain_and_rewrite<F>(&mut self, f: F)
+    where
+        F: FnMut(&Auth) -> bool,
+    {
+        self.auths.retain(f);
+        self.file_sync();
     }
 
     // TODO: Probably don't need this
@@ -105,26 +108,15 @@ impl AuthStore {
         self.file.seek(SeekFrom::End(0)).unwrap();
         write!(self.file, "{}\n", auth).unwrap();
     }
-    pub fn remove(&mut self, i: usize) {
-        // remove in the vec
-        self.auths.remove(i);
-        // remove in the file
-        let mut reader = BufReader::new(&self.file);
-        reader.seek(SeekFrom::Start(0)).unwrap();
 
-        let mut lines = reader.lines().collect::<Vec<_>>();
-        lines.remove(i).unwrap();
-
+    fn file_sync(&mut self) {
         // Prefferably I should just be writing to a new file, and then
         // just swap the files when I'm finished writing, but realisticly
         // there is no point in this type of redundncy at this point in the
         // project.
         self.file.seek(SeekFrom::Start(0)).unwrap();
         self.file.set_len(0).unwrap();
-        for line in lines {
-            let line = line.unwrap();
-            writeln!(self.file, "{}", line).unwrap();
-        }
+        self.auths.iter().for_each(|auth| { writeln!(self.file, "{}", auth).unwrap(); });
     }
 
     pub fn is_empty(&self) -> bool {

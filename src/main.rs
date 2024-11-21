@@ -1,10 +1,13 @@
-use crate::ui::{chat_init, signin_init};
+use std::{cell::RefCell, rc::Rc};
+use secure_string::SecureString;
 use auth::AuthStore;
 use backend::Messenger;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
-use std::{cell::RefCell, rc::Rc};
+use surf::StatusCode;
+use crate::auth::Platform;
+use crate::ui::{chat_init, signin_init};
 
 mod auth;
 mod backend;
@@ -15,7 +18,7 @@ slint::include_modules!();
 
 fn main() {
     // Token Store
-    let auth_store = Rc::new(RefCell::new(AuthStore::new("public/LoginInfo".into())));
+    let mut auth_store = AuthStore::new("public/LoginInfo".into());
 
     #[cfg(not(debug_assertions))]
     {
@@ -39,46 +42,36 @@ fn main() {
     let ui = MainWindow::new().unwrap();
 
     // === Sign in, if user has a token ===
-    if !(*auth_store).borrow().is_empty() {
-        fetch_data(&ui, &auth_store.clone());
+    if !auth_store.is_empty() {
+        auth_store.retain_and_rewrite(|auth| {
+            match fetch_data(auth.platform.clone(), auth.token.clone(), &ui) {
+                Ok(..) => true,
+                Err(error) if error.status() == StatusCode::Unauthorized => {
+                    eprintln!("Token expired");
+                    false
+                }
+                Err(error) => {
+                    eprintln!("Error Status: {}", error.status());
+                    true
+                }
+            }
+        });
     }
 
-    // === Chat ===
-
-    // === Form ===
-    signin_init(&ui, &auth_store);
-
+    signin_init(&ui, &Rc::new(RefCell::new(auth_store)));
     ui.run().unwrap();
 }
 
 // TODO: Rename to explain that it is refreshes ui
-fn fetch_data(ui: &MainWindow, auth_store: &Rc<RefCell<AuthStore>>) {
-    let mut auth_store = auth_store.borrow_mut();
-
-    let mut auths_to_remove = vec![];
+fn fetch_data(platform: Platform, token: SecureString, ui: &MainWindow) ->
+Result<(), surf::Error> {
     smol::block_on(async {
-        for (i, auth) in auth_store.iter_mut().enumerate() {
-            let messenger = auth.get_messanger();
-
-            // Fetch data
-            let profile = messenger.get_profile().await;
-            let conversations = messenger.get_conversation().await;
-            let contacts = messenger.get_contacts().await;
-
-            println!("{:#?}", conversations);
-            // Check if any req failed
-            let (Ok(profile), Ok(conv), Ok(contact)) = (profile, conversations, contacts) else {
-                auths_to_remove.push(i);
-                continue;
-            };
-
-            println!("{:#?}\n{:#?}\n{:#?}", profile, &conv, contact);
-            // Update ui
-            ui.set_page(Page::Main);
-            chat_init(ui, conv);
-        }
-    });
-
-    auths_to_remove.sort_by(|a, b| b.cmp(a));
-    auths_to_remove.iter().for_each(|i| auth_store.remove(*i));
+        let messenger = platform.get_messanger(token);
+        let profile = messenger.get_profile().await?;
+        let conversations = messenger.get_conversation().await?;
+        let contacts = messenger.get_contacts().await?;
+        ui.set_page(Page::Main);
+        chat_init(&ui, conversations);
+        Ok(())
+    })
 }
