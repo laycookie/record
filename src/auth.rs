@@ -6,37 +6,43 @@ use std::{
     str::FromStr,
 };
 
+use crate::backend::{discord::rest_api::Discord, Messanger};
 use secure_string::SecureString;
-use strum::{Display, EnumString};
-
-use crate::backend::{discord::rest_api::Discord, Messenger};
+use strum::Display;
+use strum::EnumString;
 
 #[derive(Debug, Clone, EnumString, Display)]
+#[repr(u8)]
 pub enum Platform {
     Discord,
     Unkown,
 }
 impl Platform {
-    pub fn get_messanger(&self, token: SecureString) -> impl Messenger {
-        match self {
-            Platform::Discord => Discord { token },
-            Platform::Unkown => todo!(),
+    pub fn generate_auth(&self, token: SecureString) -> Auth {
+        Auth {
+            platform: self.to_owned(),
+            token,
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Auth {
-    pub platform: Platform,
-    pub token: SecureString,
+    pub(crate) platform: Platform,
+    pub(crate) token: SecureString,
 }
 
 impl Auth {
-    pub fn get_messanger(&self) -> impl Messenger {
-        self.platform.get_messanger(self.token.clone())
+    pub fn new(platform: Platform, token: SecureString) -> Self {
+        Self { platform, token }
+    }
+    pub fn get_messanger(&self) -> impl Messanger + use<'_> {
+        match self.platform {
+            Platform::Discord => Discord { auth: self },
+            Platform::Unkown => todo!(),
+        }
     }
 }
-
 impl Display for Auth {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token = self.token.clone().into_unsecure(); // TODO: Zeroize
@@ -116,7 +122,9 @@ impl AuthStore {
         // project.
         self.file.seek(SeekFrom::Start(0)).unwrap();
         self.file.set_len(0).unwrap();
-        self.auths.iter().for_each(|auth| { writeln!(self.file, "{}", auth).unwrap(); });
+        self.auths.iter().for_each(|auth| {
+            writeln!(self.file, "{}", auth).unwrap();
+        });
     }
 
     pub fn is_empty(&self) -> bool {

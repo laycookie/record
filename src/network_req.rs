@@ -30,5 +30,3 @@ pub async fn cache_download(url: &SharedString, path: PathBuf, file_name: &Share
     let bytes = res.body_bytes().await.unwrap();
     file.write_all(&bytes).unwrap();
 }
-
-fn fetch_common() {}

@@ -1,13 +1,14 @@
-use std::{cell::RefCell, rc::Rc};
-use secure_string::SecureString;
-use auth::AuthStore;
-use backend::Messenger;
+use crate::auth::AuthStore;
+use crate::ui::signin_init;
+
+use auth::Auth;
+use backend::MessengerHTTP;
 #[cfg(all(not(debug_assertions), unix))]
 use daemonize::Daemonize;
 use slint::ComponentHandle;
+use std::{cell::RefCell, rc::Rc};
 use surf::StatusCode;
-use crate::auth::Platform;
-use crate::ui::{chat_init, signin_init};
+use ui::GlobalConversationData;
 
 mod auth;
 mod backend;
@@ -43,35 +44,38 @@ fn main() {
 
     // === Sign in, if user has a token ===
     if !auth_store.is_empty() {
-        auth_store.retain_and_rewrite(|auth| {
-            match fetch_data(auth.platform.clone(), auth.token.clone(), &ui) {
-                Ok(..) => true,
-                Err(error) if error.status() == StatusCode::Unauthorized => {
-                    eprintln!("Token expired");
-                    false
-                }
-                Err(error) => {
-                    eprintln!("Error Status: {}", error.status());
-                    true
-                }
+        auth_store.retain_and_rewrite(|auth| match fetch_data(auth.clone(), &ui) {
+            Ok(..) => true,
+            Err(error) if error.status() == StatusCode::Unauthorized => {
+                eprintln!("Token expired");
+                false
+            }
+            Err(error) => {
+                eprintln!("Error Status: {}", error.status());
+                true
             }
         });
+    } else {
+        signin_init(&ui, &Rc::new(RefCell::new(auth_store)));
     }
-
-    signin_init(&ui, &Rc::new(RefCell::new(auth_store)));
     ui.run().unwrap();
 }
 
 // TODO: Rename to explain that it is refreshes ui
-fn fetch_data(platform: Platform, token: SecureString, ui: &MainWindow) ->
-Result<(), surf::Error> {
+fn fetch_data(auth: Auth, ui: &MainWindow) -> Result<(), surf::Error> {
     smol::block_on(async {
-        let messenger = platform.get_messanger(token);
+        let messenger = auth.get_messanger();
+
         let profile = messenger.get_profile().await?;
         let conversations = messenger.get_conversation().await?;
         let contacts = messenger.get_contacts().await?;
+
+        let ui_conversations = GlobalConversationData::new(&ui);
+        for con in conversations {
+            ui_conversations.add_conversation(con, auth.clone());
+        }
+        // Update ui
         ui.set_page(Page::Main);
-        chat_init(&ui, conversations);
         Ok(())
     })
 }

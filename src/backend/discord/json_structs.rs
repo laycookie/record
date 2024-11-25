@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::{auth::Platform, network_req::cache_download, Conversation};
 use serde::Deserialize;
@@ -70,7 +70,7 @@ pub struct User {
     pub username: String,
 }
 
-#[derive(Debug, Deserialize_repr)]
+#[derive(Deserialize_repr, Debug, Clone)]
 #[repr(u8)]
 pub enum ChannelTypes {
     GuildText,
@@ -88,7 +88,7 @@ pub enum ChannelTypes {
     GuildMedia,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Channel {
     pub id: String,
     #[serde(rename = "type")]
@@ -149,7 +149,7 @@ impl Into<Conversation> for Channel {
     }
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct Recipient {
     pub avatar: Option<String>,
     pub avatar_decoration_data: Option<String>,

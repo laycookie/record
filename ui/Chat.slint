@@ -8,7 +8,6 @@ struct Conversation {
 	// Data
 	name: string,
 	image: image,
-
 }
 struct Guild {
 	pfp_path: string,
@@ -16,6 +15,7 @@ struct Guild {
 
 export global ChatGlobal {
 	in property <[Conversation]> conversations;
+	callback set_selected_conversation(Conversation);
 }
 
 export component Chat {
@@ -27,6 +27,7 @@ export component Chat {
 	];
 
     HorizontalBox {
+	// GUILDS
 		VerticalBox {
 			width: 64px;
 
@@ -37,10 +38,11 @@ export component Chat {
 				viewport-height: guilds.length * 64px;
 				for guild[i] in guilds: Button {
 					y: i * 64px;
-					text: guild.pfp_path;
+					icon: @image-url("../public/Assets/avatar.png");
 				}
 			}
 		}
+		// SIDE BAR
 		VerticalBox { 
 			Button {
 				text: "Friends";
@@ -51,9 +53,11 @@ export component Chat {
 					icon: conversation.image;
 					y: i * 64px;
 					text: conversation.name;
+					clicked => { ChatGlobal.set_selected_conversation(conversation) }
 				}
 			} 
 		}
+		// CHAT
 		VerticalBox { 
 			Text { text: "User"; }
 			TextEdit { }
