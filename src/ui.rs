@@ -56,7 +56,9 @@ impl GlobalConversationData {
                 // error this is caused by the bug in the code.
                 let platform = Platform::from_str(&conversation.platform.to_string()).unwrap();
                 let chennel_id = conversation.id.to_string().as_bytes().to_owned();
+
                 let id = [vec![platform as u8], chennel_id].concat();
+
                 println!("{:?}", id_to_auths.borrow().get(&id));
             }
         });
