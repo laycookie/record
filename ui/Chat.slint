@@ -1,5 +1,4 @@
 import { HorizontalBox, ScrollView, Button, VerticalBox, TextEdit } from "std-widgets.slint";
-
 struct Conversation {
 	// MetaData
 	platform: string,
@@ -9,59 +8,119 @@ struct Conversation {
 	name: string,
 	image: image,
 }
+
 struct Guild {
 	pfp_path: string,
 }
 
 export global ChatGlobal {
-	in property <[Conversation]> conversations;
-	callback set_selected_conversation(Conversation);
+    in property <[Conversation]> conversations;
+    callback set_selected_conversation(Conversation);
+}
+
+component MessageBoxButton inherits Rectangle {
+    in-out property text <=> txt.text;
+    callback clicked <=> touch.clicked;
+    HorizontalBox {
+        icon := Image {
+            width: 24px;
+            height: 24px;
+            source: @image-url("../public/Assets/avatar.png");
+        }
+
+        txt := Text { }
+    }
+
+    touch := TouchArea { }
 }
 
 export component Chat {
-	property <[Guild]> guilds: [
-		{pfp_path: "test"},
-		{pfp_path: "test"},
-		{pfp_path: "test"},
-		{pfp_path: "test"},
-	];
-
+    property <[Guild]> guilds: [
+        { pfp_path: "test" },
+        { pfp_path: "test" },
+        { pfp_path: "test" },
+        { pfp_path: "test" },
+    ];
+    //Dummy data
+    property <[string]> messages: [
+        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.",
+        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."
+    ];
     HorizontalBox {
-	// GUILDS
+        width: 100%;
+        // GUILDS
 		VerticalBox {
-			width: 64px;
+            width: 64px;
 
-			Button {
-				text: "DMs";
-			}
-			ScrollView {
-				viewport-height: guilds.length * 64px;
-				for guild[i] in guilds: Button {
-					y: i * 64px;
-					icon: @image-url("../public/Assets/avatar.png");
-				}
-			}
-		}
-		// SIDE BAR
-		VerticalBox { 
-			Button {
-				text: "Friends";
-			}
-			ScrollView {
-				viewport-height: guilds.length * 64px;
-				for conversation[i] in ChatGlobal.conversations: Button {
-					icon: conversation.image;
-					y: i * 64px;
-					text: conversation.name;
-					clicked => { ChatGlobal.set_selected_conversation(conversation) }
-				}
-			} 
-		}
-		// CHAT
-		VerticalBox { 
-			Text { text: "User"; }
-			TextEdit { }
-		}
-		
+            Button {
+                text: "DMs";
+            }
+
+            ScrollView {
+                viewport-height: guilds.length * 64px;
+                for guild[i] in guilds: Button {
+                    y: i * 32px;
+                    icon: @image-url("../public/Assets/avatar.png");
+                }
+            }
+        }
+
+        // SIDE BAR
+		sidebar := VerticalBox {
+            width: 192px;
+            Button {
+                text: "Friends";
+            }
+
+            ScrollView {
+                viewport-height: guilds.length * 64px;
+                for conversation[i] in ChatGlobal.conversations: Button {
+                    width: sidebar.width;
+                    icon: conversation.image;
+                    y: i * 32px;
+                    text: conversation.name;
+                    clicked => {
+                        ChatGlobal.set_selected_conversation(conversation);
+                        user.text = conversation.name;
+                        user.icon = conversation.image;
+                    }
+                }
+            }
+        }
+
+        // CHAT
+        VerticalBox {
+            user := Button {
+                height: 32px;
+                text: "User";
+            }
+
+            ScrollView {
+                viewport-height: messages.length * 32px;
+                VerticalBox {
+                    width: parent.width;
+                    for message[i] in messages: Rectangle {
+                        background: Math.mod(i, 2) == 0 ? @linear-gradient(135deg, #34B7F1 100%, #1C91E8 50%) : @linear-gradient(135deg,  #FF85B3 100%, #FF4081 50%);
+                        border-radius: 8px;
+                        VerticalBox {
+                            MessageBoxButton {
+                            //TODO: Add profile picture according to who sent the message
+                                x: 0;
+                                text: "User";
+                            }
+
+                            Text {
+                                wrap: word-wrap;
+                                text: message;
+                            }
+                        }
+                    }
+                }
+            }
+
+            TextEdit {
+                height: 42px;
+            }
+        }
     }
 }

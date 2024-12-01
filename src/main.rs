@@ -68,6 +68,7 @@ fn fetch_data(auth: Auth, ui: &MainWindow) -> Result<(), surf::Error> {
 
         let profile = messenger.get_profile().await?;
         let conversations = messenger.get_conversation().await?;
+
         let contacts = messenger.get_contacts().await?;
 
         let ui_conversations = GlobalConversationData::new(&ui);

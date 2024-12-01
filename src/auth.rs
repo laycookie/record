@@ -36,7 +36,7 @@ impl Auth {
     pub fn new(platform: Platform, token: SecureString) -> Self {
         Self { platform, token }
     }
-    pub fn get_messanger(&self) -> impl Messanger + use<'_> {
+    pub fn get_messanger(&self) -> impl Messanger + '_ {
         match self.platform {
             Platform::Discord => Discord { auth: self },
             Platform::Unkown => todo!(),
