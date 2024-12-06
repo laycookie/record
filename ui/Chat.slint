@@ -19,6 +19,8 @@ export global ChatGlobal {
     callback set_selected_conversation(Conversation);
 }
 
+//Inside each message, there is a profile picture and User's name which he can click on to view the profile
+//TODO: Implement touchArea properly and Make this button display the profile
 component MessageBoxButton inherits Rectangle {
     in-out property text <=> txt.text;
     callback clicked <=> touch.clicked;
@@ -41,6 +43,10 @@ export component Chat {
         { pfp_path: "test" },
         { pfp_path: "test" },
         { pfp_path: "test" },
+        { pfp_path: "test" },
+        { pfp_path: "test" },
+        { pfp_path: "test" },
+        { pfp_path: "test" },
     ];
     //Dummy data
     property <[string]> messages: [
@@ -48,7 +54,6 @@ export component Chat {
         "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum."
     ];
     HorizontalBox {
-        width: 100%;
         // GUILDS
 		VerticalBox {
             width: 64px;
@@ -58,10 +63,11 @@ export component Chat {
             }
 
             ScrollView {
-                viewport-height: guilds.length * 64px;
-                for guild[i] in guilds: Button {
-                    y: i * 32px;
-                    icon: @image-url("../public/Assets/avatar.png");
+                VerticalLayout {
+                    for guild[i] in guilds: Button {
+                        height: 32px;
+                        icon: @image-url("../public/Assets/avatar.png");
+                    }
                 }
             }
         }
@@ -69,21 +75,22 @@ export component Chat {
         // SIDE BAR
 		sidebar := VerticalBox {
             width: 192px;
+
             Button {
                 text: "Friends";
             }
 
             ScrollView {
-                viewport-height: guilds.length * 64px;
-                for conversation[i] in ChatGlobal.conversations: Button {
-                    width: sidebar.width;
-                    icon: conversation.image;
-                    y: i * 32px;
-                    text: conversation.name;
-                    clicked => {
-                        ChatGlobal.set_selected_conversation(conversation);
-                        user.text = conversation.name;
-                        user.icon = conversation.image;
+                VerticalLayout {
+                    for conversation[i] in ChatGlobal.conversations: Button {
+                        height: 32px;
+                        icon: conversation.image;
+                        text: conversation.name;
+                        clicked => {
+                            ChatGlobal.set_selected_conversation(conversation);
+                            user.text = conversation.name;
+                            user.icon = conversation.image;
+                        }
                     }
                 }
             }
@@ -97,16 +104,14 @@ export component Chat {
             }
 
             ScrollView {
-                viewport-height: messages.length * 32px;
-                VerticalBox {
-                    width: parent.width;
+                VerticalLayout {
+                    alignment: end;
                     for message[i] in messages: Rectangle {
-                        background: Math.mod(i, 2) == 0 ? @linear-gradient(135deg, #34B7F1 100%, #1C91E8 50%) : @linear-gradient(135deg,  #FF85B3 100%, #FF4081 50%);
+                        background: Math.mod(i, 2) == 0 ? @linear-gradient(135deg, #34B7F1 100%, #1C91E8 50%) : @linear-gradient(135deg, #FF85B3 100%, #FF4081 50%);
                         border-radius: 8px;
                         VerticalBox {
                             MessageBoxButton {
-                            //TODO: Add profile picture according to who sent the message
-                                x: 0;
+                                //TODO: Add profile picture according to who sent the message
                                 text: "User";
                             }
 
