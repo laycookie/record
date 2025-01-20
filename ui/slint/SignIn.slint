@@ -1,0 +1,32 @@
+import { VerticalBox, LineEdit, ComboBox, Button } from "std-widgets.slint";
+
+struct UserAuth {
+	token: string,
+	platform: string,
+}
+
+export global SignInGlobal {
+	callback tokenSubmit(UserAuth);
+}
+
+export component SignIn {
+	function tokenSubmit() {
+		SignInGlobal.tokenSubmit({token: token.text, platform: platform.current-value})
+	}
+
+    VerticalBox {
+        max-width: 768px;
+        platform := ComboBox {
+            model: ["Discord"];
+        }
+        token := LineEdit {
+            height: 50px;
+            placeholder-text: "Token";
+			accepted => { tokenSubmit() }
+        }
+		Button {
+			text: "Submit";
+			clicked => { tokenSubmit() }
+		}
+    }
+}

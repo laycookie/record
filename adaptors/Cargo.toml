@@ -1,0 +1,10 @@
+[package]
+name = "adaptors"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+surf = "2.3.2"
+serde = "1.0.216"
+serde_repr = "0.1.19"
+async-trait = "0.1.83"
