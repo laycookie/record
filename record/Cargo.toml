@@ -1,0 +1,10 @@
+[package]
+name = "record"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+adaptors = { path = "../adaptors" }
+iced = "0.13.1"
+smol = "2.0.2"
+strum = { version = "0.27.1", features = ["derive"] }

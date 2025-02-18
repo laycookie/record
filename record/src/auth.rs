@@ -8,20 +8,23 @@ use std::{
     rc::Rc,
     str::FromStr,
 };
-use strum::{Display, EnumString};
 
-#[derive(Debug, Clone, EnumString, Display)]
-#[repr(u8)]
-pub(crate) enum Platform {
-    Discord,
-}
-impl Platform {
-    pub fn get_messanger(&self, auth: String) -> Rc<dyn Messanger> {
-        match self {
-            Platform::Discord => Rc::new(Discord::new(&auth)),
-        }
-    }
-}
+use crate::pages::login::Platform;
+
+// TODO: Make adapters handle the functionality of this enum
+// #[derive(Debug, Clone, Display, EnumString)]
+// #[repr(u8)]
+// pub(crate) enum Platform {
+//     Discord,
+// }
+// impl Platform {
+//     pub fn get_messanger(&self, auth: String) -> Rc<dyn Messanger> {
+//         match self {
+//             Platform::Discord => Rc::new(Discord::new(&auth)),
+//         }
+//     }
+// }
+// ===
 
 type AuthChangeCallback = dyn Fn(Vec<Rc<dyn Messanger>>) -> Pin<Box<dyn Future<Output = ()>>>;
 pub(super) struct AuthStore {
@@ -51,9 +54,9 @@ impl<'a> AuthStore {
             };
 
             // In theory should never return false
-            let mes: Rc<dyn Messanger> = match Platform::from_str(platform) {
-                Ok(Platform::Discord) => Rc::new(Discord::new(token)),
-                Err(_) => todo!(),
+            let mes: Rc<dyn Messanger> = match Platform::from_str(platform).unwrap() {
+                Platform::Discord => Rc::new(Discord::new(token)),
+                Platform::Test => todo!(),
             };
             messangers.push(mes);
         }
