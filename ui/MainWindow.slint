@@ -1,0 +1,19 @@
+import { SignIn, SignInGlobal } from "./SignIn.slint";
+import { Chat, ChatGlobal } from "./Chat.slint";
+export { SignInGlobal, ChatGlobal }
+
+enum Page {
+	Login,
+	Main,
+}
+
+export component MainWindow inherits Window {
+	in-out property <Page> page;
+
+	if (Page.Login == page): SignIn {
+		
+	} if (Page.Main == page): Chat {
+		width: 100%;
+		height: 100%;
+	}
+}
