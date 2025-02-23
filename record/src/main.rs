@@ -25,14 +25,14 @@ struct App {
 impl App {
     fn new() -> (Self, Task<MyAppMessage>) {
         // Init app
-        let mut auth = Box::pin(AuthStore::new("./record/public/LoginInfo".into()));
+        let mut auth = Box::pin(AuthStore::new("./public/LoginInfo".into()));
         let app = Self {
             memoryless_page: Box::new(Login::new(&mut auth)),
             auth,
         };
 
         // Open a window
-        let (window_id, window_task) = window::open(window::Settings {
+        let (_window_id, window_task) = window::open(window::Settings {
             ..Default::default()
         });
 

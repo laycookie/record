@@ -12,10 +12,6 @@
   in
   {
 		devShells.${system} = {
-			# mkShell.override {
-			# 	stdenv = pkgs.clangStdenv;
-			# };
-
 			default = pkgs.mkShell.override { stdenv = pkgs.clangStdenv; } {
     		    packages = with pkgs; [
     		      cargo
@@ -23,43 +19,43 @@
     		      rust-analyzer
     		      rustfmt
 
-				  python3
-				  ninja
+				  # python3
+				  # ninja
 				  # clang
 				  # clang-tools
 
-    		      libxkbcommon
-    		      wayland
+    		      # libxkbcommon
+    		      # wayland
 
-				  vulkan-loader
-				  vulkan-validation-layers
-				  vulkan-tools
+				  # vulkan-loader
+				  # vulkan-validation-layers
+				  # vulkan-tools
 
-				  libappindicator
+				  # libappindicator
 
 				  openssl
-				  pkgs.pkg-config
+				  pkg-config
 
-				  gtk3
-				  xdotool
-				  libayatana-appindicator
+				  # gtk3
+				  # xdotool
+				  # libayatana-appindicator
     		    ];
 				LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
 					pkgs.libxkbcommon
 					pkgs.wayland
 					pkgs.vulkan-loader
     			
-					pkgs.freetype
-					pkgs.fontconfig
-					pkgs.libinput
-					pkgs.qt5.full
+					# pkgs.freetype
+					# pkgs.fontconfig
+					# pkgs.libinput
+					# pkgs.qt5.full
 
 
-					pkgs.libayatana-appindicator
+					# pkgs.libayatana-appindicator
 				];
 
-    		    RUST_BACKTRACE = "full";
-    		    WINIT_UNIX_BACKEND = "wayland";
+    		    # RUST_BACKTRACE = "full";
+    		    # WINIT_UNIX_BACKEND = "wayland";
     		};
 		};
 	};
