@@ -40,7 +40,7 @@ impl<'a> AuthStore {
             .write(true)
             .create(true)
             .open(&path)
-            .unwrap();
+            .expect(format!("{:#?}", path).as_str());
 
         let buf_reader = BufReader::new(&auth_file);
 
