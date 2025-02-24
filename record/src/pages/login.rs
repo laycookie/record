@@ -1,6 +1,6 @@
 use adaptors::{discord::Discord, Messanger};
 use iced::{
-    widget::{column, Container, combo_box::State, Button, Column, ComboBox, TextInput},
+    widget::{column, combo_box::State, Button, Column, ComboBox, Container, TextInput},
     Alignment, Element,
 };
 use std::{fmt::Display, rc::Rc};
@@ -65,7 +65,7 @@ impl Login {
         Self {
             auth,
             platform: service,
-            selected_platform: Platform::Discord,
+            selected_platform: Platform::Test,
             token: String::new(),
         }
     }
@@ -121,9 +121,9 @@ impl Page for Login {
             auth_input,
             Button::new("Submit").on_press(MyAppMessage::Login(Message::SubmitToken))
         ]
-            .width(iced::Length::Fixed(width))
-            .align_x(Alignment::Center)
-            .spacing(20);
+        .width(iced::Length::Fixed(width))
+        .align_x(Alignment::Center)
+        .spacing(20);
 
         Container::new(content)
             .height(iced::Length::Fill)
