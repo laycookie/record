@@ -1,6 +1,6 @@
 use adaptors::{discord::Discord, Messanger};
 use iced::{
-    widget::{column, combo_box::State, Button, Column, ComboBox, TextInput},
+    widget::{column, Container, combo_box::State, Button, Column, ComboBox, TextInput},
     Alignment, Element,
 };
 use std::{fmt::Display, rc::Rc};
@@ -92,8 +92,8 @@ impl Page for Login {
         None
     }
 
-    fn view(&self) -> iced::Element<MyAppMessage> {
-        let width = 350.0;
+    fn view(&self) -> Element<MyAppMessage> {
+        let width = 360.0;
 
         let select_platform = ComboBox::new(
             &self.platform,
@@ -121,9 +121,15 @@ impl Page for Login {
             auth_input,
             Button::new("Submit").on_press(MyAppMessage::Login(Message::SubmitToken))
         ]
-        .spacing(20)
-        .width(width)
-        .align_x(Alignment::Center);
-        content.into()
+            .width(iced::Length::Fixed(width))
+            .align_x(Alignment::Center)
+            .spacing(20);
+
+        Container::new(content)
+            .height(iced::Length::Fill)
+            .width(iced::Length::Fill)
+            .align_x(Alignment::Center)
+            .align_y(Alignment::Center)
+            .into()
     }
 }
