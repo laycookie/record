@@ -2,7 +2,7 @@ use std::pin::Pin;
 
 use auth::AuthStore;
 use iced::{window, Element, Font, Task};
-use pages::{Login, MyAppMessage, Page};
+use pages::{chat::MessangerWindow, Login, MyAppMessage, Page};
 
 mod auth;
 mod pages;
@@ -10,9 +10,12 @@ mod pages;
 const ICON_FONT: Font = Font::with_name("icons");
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting");
     iced::daemon(App::title(), App::update, App::view)
         .run_with(|| App::new())
         .inspect_err(|err| println!("{}", err))?;
+
+    // iced::application(App::title(), App::update, App::view).run();
     // .font(include_bytes!("../fonts/icons.ttf").as_slice())
     Ok(())
 }
@@ -22,14 +25,29 @@ struct App {
     auth: Pin<Box<AuthStore>>,
     memoryless_page: Box<dyn Page>,
 }
+impl Default for App {
+    fn default() -> Self {
+        let mut auth_store = Box::pin(AuthStore::new("./public/LoginInfo".into()));
+
+        let memoryless_page: Box<dyn Page>;
+        if auth_store.is_empty() {
+            memoryless_page = Box::new(Login::new(&mut auth_store));
+        } else {
+            let auths = auth_store.get_auths();
+            let m = MessangerWindow::new(&auths).unwrap();
+            memoryless_page = Box::new(m);
+        }
+
+        Self {
+            memoryless_page,
+            auth: auth_store,
+        }
+    }
+}
 impl App {
     fn new() -> (Self, Task<MyAppMessage>) {
         // Init app
-        let mut auth = Box::pin(AuthStore::new("./public/LoginInfo".into()));
-        let app = Self {
-            memoryless_page: Box::new(Login::new(&mut auth)),
-            auth,
-        };
+        let app = Self::default();
 
         // Open a window
         let (_window_id, window_task) = window::open(window::Settings {
@@ -52,4 +70,8 @@ impl App {
     fn view(&self, window: window::Id) -> Element<MyAppMessage> {
         self.memoryless_page.view()
     }
+    // fn view(&self) -> Element<MyAppMessage> {
+    //     // self.memoryless_page.view()
+    //     Column::new().into()
+    // }
 }

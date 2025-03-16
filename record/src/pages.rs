@@ -1,11 +1,14 @@
+pub mod chat;
 pub mod login;
 
+use chat::Message as MessangerMessage;
 pub use login::Login;
 use login::Message as LoginMessage;
 
 #[derive(Debug, Clone)]
 pub enum MyAppMessage {
     Login(LoginMessage),
+    Chat(MessangerMessage),
 }
 
 pub trait Page {

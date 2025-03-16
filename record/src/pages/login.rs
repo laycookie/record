@@ -8,7 +8,7 @@ use strum::EnumString;
 
 use crate::auth::AuthStore;
 
-use super::{MyAppMessage, Page};
+use super::{chat::MessangerWindow, MyAppMessage, Page};
 
 // TODO: Make adapters handle the functionality of this enum
 #[derive(Debug, Clone, EnumString)]
@@ -75,17 +75,30 @@ impl Login {
 }
 impl Page for Login {
     fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
-        let MyAppMessage::Login(message) = message;
-        match message {
-            Message::PlatformInput(platform) => {
-                println!("{:?}", platform);
-                self.selected_platform = platform;
-            }
-            Message::TokenInput(change) => self.token = change,
-            Message::SubmitToken => {
-                let auth_store = self.get_mut_auth();
-                let a = self.selected_platform.to_messanger(self.token.clone());
-                auth_store.add_auth(a);
+        if let MyAppMessage::Login(message) = message {
+            match message {
+                Message::PlatformInput(platform) => {
+                    println!("{:?}", platform);
+                    self.selected_platform = platform;
+                }
+                Message::TokenInput(change) => self.token = change,
+                Message::SubmitToken => {
+                    // Init auth
+                    let auth = self.selected_platform.to_messanger(self.token.clone());
+
+                    // Fetch data from auth
+                    let auths = vec![auth];
+                    let chat = MessangerWindow::new(&auths).unwrap();
+
+                    // Store data in auth_store
+                    let auth_store = self.get_mut_auth();
+                    auth_store.add_auth(auths[0].clone());
+
+                    // Pass fetched data into Chat
+
+                    return Some(Box::new(chat));
+                    // ===
+                }
             }
         }
 

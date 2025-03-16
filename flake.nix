@@ -24,8 +24,6 @@
 				  # clang
 				  # clang-tools
 
-    		      # libxkbcommon
-    		      # wayland
 
 				  # vulkan-loader
 				  # vulkan-validation-layers
@@ -36,13 +34,24 @@
 				  openssl
 				  pkg-config
 
+
+
 				  # gtk3
 				  # xdotool
 				  # libayatana-appindicator
     		    ];
+				buildInputs = with pkgs; [
+					# libxkbcommon
+      			  	# Other dependencies
+      			];
 				LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [
 					pkgs.libxkbcommon
 					pkgs.wayland
+
+					# pkgs.xorg.libX11
+					# pkgs.xorg.libXcursor
+					# pkgs.xorg.libXi
+
 					pkgs.vulkan-loader
     			
 					# pkgs.freetype
@@ -55,7 +64,13 @@
 				];
 
     		    # RUST_BACKTRACE = "full";
+				
+				# Wayland
     		    # WINIT_UNIX_BACKEND = "wayland";
+    		    
+				# X11/Xwayland
+				# WINIT_UNIX_BACKEND = "x11";
+				# WAYLAND_DISPLAY="";
     		};
 		};
 	};

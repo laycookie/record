@@ -1,4 +1,4 @@
-use adaptors::{discord::Discord, Messanger};
+use adaptors::{discord::Discord, Messanger as Auth};
 use std::{
     fs::{File, OpenOptions},
     future::Future,
@@ -11,24 +11,14 @@ use std::{
 
 use crate::pages::login::Platform;
 
-// TODO: Make adapters handle the functionality of this enum
-// #[derive(Debug, Clone, Display, EnumString)]
-// #[repr(u8)]
-// pub(crate) enum Platform {
-//     Discord,
-// }
-// impl Platform {
-//     pub fn get_messanger(&self, auth: String) -> Rc<dyn Messanger> {
-//         match self {
-//             Platform::Discord => Rc::new(Discord::new(&auth)),
-//         }
-//     }
-// }
-// ===
+struct Messanger {
+    auth: Rc<dyn Auth>,
+    on_disk: bool,
+}
 
-type AuthChangeCallback = dyn Fn(Vec<Rc<dyn Messanger>>) -> Pin<Box<dyn Future<Output = ()>>>;
+type AuthChangeCallback = dyn Fn(Vec<Rc<dyn Auth>>) -> Pin<Box<dyn Future<Output = ()>>>;
 pub(super) struct AuthStore {
-    messangers: Vec<Rc<dyn Messanger>>,
+    messangers: Vec<Messanger>,
     file: File,
     auth_change_listeners: Vec<Box<AuthChangeCallback>>,
 }
@@ -54,11 +44,15 @@ impl<'a> AuthStore {
             };
 
             // In theory should never return false
-            let mes: Rc<dyn Messanger> = match Platform::from_str(platform).unwrap() {
+            let auth: Rc<dyn Auth> = match Platform::from_str(platform).unwrap() {
                 Platform::Discord => Rc::new(Discord::new(token)),
                 Platform::Test => todo!(),
             };
-            messangers.push(mes);
+
+            messangers.push(Messanger {
+                auth,
+                on_disk: false,
+            });
         }
         AuthStore {
             file: auth_file,
@@ -67,8 +61,11 @@ impl<'a> AuthStore {
         }
     }
 
-    pub fn get_messangers(&self) -> &Vec<Rc<dyn Messanger>> {
-        &self.messangers
+    pub fn get_auths(&self) -> Vec<Rc<dyn Auth>> {
+        self.messangers
+            .iter()
+            .map(|mes| mes.auth.clone())
+            .collect::<Vec<_>>()
     }
 
     pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
@@ -77,28 +74,22 @@ impl<'a> AuthStore {
 
     pub fn retain<F>(&mut self, f: F)
     where
-        F: FnMut(&Rc<dyn Messanger>) -> bool,
+        F: FnMut(&Messanger) -> bool,
     {
         self.messangers.retain(f);
-        self.file_sync();
+        self.save_on_disk();
         self.dispatch_callbacks();
     }
 
-    // TODO: If something happens to the PC during a write to a file, the app
-    // has no way to recover, so we should prob. impliment some messures
-    // to prevent this in the future.
     /// Does not trigger callbacks
-    pub fn add_auth_silently(&mut self, messangers: Rc<dyn Messanger>) -> bool {
-        if !self.messangers.contains(&messangers) {
-            self.messangers.push(messangers);
-            self.file_sync();
-            return true;
-        }
-        false
-    }
-    pub fn add_auth(&mut self, messangers: Rc<dyn Messanger>) -> bool {
-        if self.add_auth_silently(messangers) {
-            self.dispatch_callbacks();
+    pub fn add_auth(&mut self, auth: Rc<dyn Auth>) -> bool {
+        if !self.get_auths().contains(&auth) {
+            self.messangers.push(Messanger {
+                auth,
+                on_disk: true,
+            });
+            self.save_on_disk();
+            // self.dispatch_callbacks();
             return true;
         }
         false
@@ -107,27 +98,26 @@ impl<'a> AuthStore {
     pub fn dispatch_callbacks(&self) {
         smol::block_on(async {
             for c in self.auth_change_listeners.iter() {
-                let messangers = self.get_messangers().to_owned();
+                let messangers = self.get_auths().to_owned();
                 c(messangers).await;
             }
         });
     }
 
-    fn file_sync(&mut self) {
-        // Prefferably I should just be writing to a new file, and then
-        // just swap the files when I'm finished writing, but realisticly
-        // there is no point in this type of redundncy at this point in the
+    fn save_on_disk(&mut self) {
+        // Preferably I should just be writing to a new file, and then
+        // just swap the files when I'm finished writing, but realistically
+        // there is no point in this type of redundancy at this point in the
         // project.
         self.file.seek(SeekFrom::Start(0)).unwrap();
         self.file.set_len(0).unwrap();
-        self.messangers.iter().for_each(|messangers| {
-            writeln!(
-                self.file,
-                "{}:{}",
-                messangers.as_ref().name(),
-                messangers.as_ref().auth()
-            )
-            .unwrap();
+        self.messangers.iter_mut().for_each(|messangers| {
+            if messangers.on_disk == false {
+                return;
+            }
+
+            let auth = messangers.auth.as_ref();
+            writeln!(self.file, "{}:{}", auth.name(), auth.auth()).unwrap();
         });
     }
 

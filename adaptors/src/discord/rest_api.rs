@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use async_trait::async_trait;
 
 use crate::{
@@ -19,7 +21,7 @@ impl Discord {
 
 #[async_trait]
 impl MessangerQuery for Discord {
-    async fn get_profile(&self) -> Result<User, surf::Error> {
+    async fn get_profile(&self) -> Result<User, Box<dyn Error>> {
         let profile = http_request::<Profile>(
             surf::get("https://discord.com/api/v9/users/@me"),
             self.get_auth_header(),
@@ -27,7 +29,7 @@ impl MessangerQuery for Discord {
         .await?;
         Ok(profile.into())
     }
-    async fn get_contacts(&self) -> Result<Vec<User>, surf::Error> {
+    async fn get_contacts(&self) -> Result<Vec<User>, Box<dyn Error>> {
         let friends = http_request::<Vec<Friend>>(
             surf::get("https://discord.com/api/v9/users/@me/relationships"),
             self.get_auth_header(),
@@ -35,7 +37,7 @@ impl MessangerQuery for Discord {
         .await?;
         Ok(friends.iter().map(|friend| friend.clone().into()).collect())
     }
-    async fn get_conversation(&self) -> Result<Vec<Conversation>, surf::Error> {
+    async fn get_conversation(&self) -> Result<Vec<Conversation>, Box<dyn Error>> {
         let channels = http_request::<Vec<Channel>>(
             surf::get("https://discord.com/api/v10/users/@me/channels"),
             self.get_auth_header(),
@@ -46,7 +48,7 @@ impl MessangerQuery for Discord {
             .map(|channel| channel.clone().into())
             .collect())
     }
-    async fn get_guilds(&self) -> Result<Vec<Guild>, surf::Error> {
+    async fn get_guilds(&self) -> Result<Vec<Guild>, Box<dyn Error>> {
         todo!()
     }
 }
