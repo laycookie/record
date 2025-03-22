@@ -1,5 +1,3 @@
-use std::pin::Pin;
-
 use auth::AuthStore;
 use iced::{window, Element, Font, Task};
 use pages::{chat::MessangerWindow, Login, MyAppMessage, Page};
@@ -22,12 +20,12 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 struct App {
     // TODO: This is a hack but as of now I don't now of a better way
-    auth: Pin<Box<AuthStore>>,
+    auth: Box<AuthStore>,
     memoryless_page: Box<dyn Page>,
 }
 impl Default for App {
     fn default() -> Self {
-        let mut auth_store = Box::pin(AuthStore::new("./public/LoginInfo".into()));
+        let mut auth_store = Box::new(AuthStore::new("./public/LoginInfo".into()));
 
         let memoryless_page: Box<dyn Page>;
         if auth_store.is_empty() {

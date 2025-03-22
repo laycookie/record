@@ -1,54 +1,72 @@
-use std::{error::Error, rc::Rc};
+use std::{collections::HashMap, error::Error, rc::Rc};
 
 use super::{MyAppMessage, Page};
 use adaptors::{
     types::{Conversation, User},
     Messanger as Auth,
 };
-use futures::join;
+use futures::try_join;
 use iced::{
-    widget::{column, row, Button, Column, Text},
+    widget::{column, row, Button, Column, Text, TextInput},
     Length,
 };
 
 #[derive(Debug, Clone)]
-pub(super) enum Message {}
+pub(super) enum Message {
+    OpenContacts,
+    OpenConversation(String),
+}
+
+// TODO: Automate
+impl Into<MyAppMessage> for Message {
+    fn into(self) -> MyAppMessage {
+        MyAppMessage::Chat(self)
+    }
+}
+//
 
 pub struct MessangerWindow {
     client_profile: User,
     navbar: Vec<NavElement>,
-    conversation_center: ConversationCenter,
+
+    main: Main,
+    conversation_center: ConversationData,
+}
+
+enum Main {
+    Contacts,
+    Chat(String),
 }
 
 struct NavElement {
     label: String,
 }
-struct ConversationCenter {
+struct ConversationData {
     conversations: Vec<Conversation>,
     contacts: Vec<User>,
-    selected_chat: Option<u32>,
-    chat: Vec<i32>,
+    // TODO: GUILDS GO HERE
+    chat: HashMap<String, String>,
 }
 
 impl MessangerWindow {
-    pub fn new(auths: &Vec<Rc<dyn Auth>>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(auths: &Vec<Rc<dyn Auth>>) -> Result<Self, Box<dyn Error>> {
         let q = auths[0].query().unwrap();
 
         smol::block_on(async {
             let (profile, conversations, contacts) =
-                join!(q.get_profile(), q.get_conversation(), q.get_contacts());
+                try_join!(q.get_profile(), q.get_conversation(), q.get_contacts())?;
 
             Ok(MessangerWindow {
-                client_profile: profile?,
+                client_profile: profile,
                 navbar: vec![NavElement {
                     label: String::from("Guilds"),
                 }],
-                conversation_center: ConversationCenter {
-                    conversations: conversations?,
-                    contacts: contacts?,
-                    selected_chat: None,
-                    chat: vec![],
+                conversation_center: ConversationData {
+                    conversations,
+                    contacts,
+                    chat: HashMap::new(),
                 },
+                main: Main::Contacts,
             })
         })
     }
@@ -57,34 +75,61 @@ impl MessangerWindow {
 impl Page for MessangerWindow {
     fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
         if let MyAppMessage::Chat(message) = message {
-            match message {}
+            match message {
+                Message::OpenConversation(id) => self.main = Main::Chat(id),
+                Message::OpenContacts => self.main = Main::Contacts,
+            }
         }
 
         None
     }
 
     fn view(&self) -> iced::Element<super::MyAppMessage> {
+        let options = row![Text::new(&self.client_profile.username)];
+
         let navbar = self
             .navbar
             .iter()
             .map(|i| Text::from(i.label.as_str()))
             .fold(Column::new(), |column, widget| column.push(widget));
 
-        let sidebar = {
-            let cont = self
-                .conversation_center
-                .contacts
+        let sidebar = column![
+            Button::new("Contacts").on_press(MyAppMessage::Chat(Message::OpenContacts)),
+            self.conversation_center
+                .conversations
                 .iter()
-                .map(|i| Button::new(i.username.as_str()))
+                .map(|i| {
+                    Button::new(i.name.as_str())
+                        .on_press(Message::OpenConversation(i.id.clone()).into())
+                })
                 .fold(Column::new(), |column, widget| column.push(widget))
-                .height(Length::Fill);
+                .height(Length::Fill)
+        ];
 
-            let profile = row![Text::from(self.client_profile.username.as_str())];
-
-            column![cont, profile]
+        let main = match &self.main {
+            Main::Contacts => {
+                let widget = Column::new();
+                let widget = widget.push(TextInput::new("Search", ""));
+                widget.push(
+                    self.conversation_center
+                        .contacts
+                        .iter()
+                        .map(|i| Text::from(i.username.as_str()))
+                        .fold(Column::new(), |column, widget| column.push(widget)),
+                )
+            }
+            Main::Chat(id) => {
+                let widget = Column::new();
+                let chat = self.conversation_center.chat.get(id);
+                let t = match chat {
+                    Some(text) => text.as_str(),
+                    None => "test",
+                };
+                let widget = widget.push(Text::from(t));
+                widget
+            }
         };
 
-        let chat = row![navbar, sidebar, "Chat"];
-        chat.into()
+        column![options, row![navbar, sidebar, main]].into()
     }
 }
