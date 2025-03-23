@@ -10,6 +10,7 @@ use iced::{
     widget::{column, row, Button, Column, Text, TextInput},
     Length,
 };
+use adaptors::types::Guild;
 
 #[derive(Debug, Clone)]
 pub(super) enum Message {
@@ -27,8 +28,6 @@ impl Into<MyAppMessage> for Message {
 
 pub struct MessangerWindow {
     client_profile: User,
-    navbar: Vec<NavElement>,
-
     main: Main,
     conversation_center: ConversationData,
 }
@@ -38,13 +37,12 @@ enum Main {
     Chat(String),
 }
 
-struct NavElement {
-    label: String,
-}
+
 struct ConversationData {
     conversations: Vec<Conversation>,
     contacts: Vec<User>,
     // TODO: GUILDS GO HERE
+    guilds: Vec<Guild>,
     chat: HashMap<String, String>,
 }
 
@@ -53,15 +51,13 @@ impl MessangerWindow {
         let q = auths[0].query().unwrap();
 
         smol::block_on(async {
-            let (profile, conversations, contacts) =
-                try_join!(q.get_profile(), q.get_conversation(), q.get_contacts())?;
+            let (profile, conversations, contacts, guilds) =
+                try_join!(q.get_profile(), q.get_conversation(), q.get_contacts(), q.get_guilds())?;
 
             Ok(MessangerWindow {
                 client_profile: profile,
-                navbar: vec![NavElement {
-                    label: String::from("Guilds"),
-                }],
                 conversation_center: ConversationData {
+                    guilds,
                     conversations,
                     contacts,
                     chat: HashMap::new(),
@@ -87,11 +83,12 @@ impl Page for MessangerWindow {
     fn view(&self) -> iced::Element<super::MyAppMessage> {
         let options = row![Text::new(&self.client_profile.username)];
 
-        let navbar = self
-            .navbar
+        let navbar = self.conversation_center
+            .guilds
             .iter()
-            .map(|i| Text::from(i.label.as_str()))
+            .map(|i| Text::from(i.name.as_str()))
             .fold(Column::new(), |column, widget| column.push(widget));
+
 
         let sidebar = column![
             Button::new("Contacts").on_press(MyAppMessage::Chat(Message::OpenContacts)),

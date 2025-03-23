@@ -9,4 +9,7 @@ pub struct Conversation {
     pub name: String,
 }
 
-pub struct Guild {}
+pub struct Guild {
+    pub id: String,
+    pub name: String,
+}
