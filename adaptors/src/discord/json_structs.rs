@@ -1,7 +1,6 @@
-use crate::types::{Conversation, User as GlobalUser};
+use crate::types::{Conversation, User as GlobalUser, Guild as GlobalGuild};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
-
 // === Users ===
 
 #[derive(Deserialize)]
@@ -163,4 +162,60 @@ pub struct Message {
     timestamp: String,
     tts: bool,
     // type: u32,
+}
+#[derive(Debug, Deserialize, Clone)]
+pub struct Guild {
+    pub id: String,  // Snowflake (usually a string for large numbers)
+    pub name: String,
+    // pub icon: Option<String>,
+    // pub icon_hash: Option<String>,
+    // pub splash: Option<String>,
+    // pub discovery_splash: Option<String>,
+    // pub owner: Option<bool>,
+    // pub owner_id: String,  // Snowflake
+    // pub permissions: Option<String>,
+    // pub region: Option<String>,  // Deprecated
+    // pub afk_channel_id: Option<String>,  // Snowflake
+    // pub afk_timeout: u32,
+    // pub widget_enabled: Option<bool>,
+    // pub widget_channel_id: Option<String>,  // Snowflake
+    // pub verification_level: u8,
+    // pub default_message_notifications: u8,
+    // pub explicit_content_filter: u8,
+    // pub roles: Vec<Role>,
+    // pub emojis: Vec<Emoji>,
+    // pub features: Vec<String>,
+    // pub mfa_level: u8,
+    // pub application_id: Option<String>,  // Snowflake
+    // pub system_channel_id: Option<String>,  // Snowflake
+    // pub system_channel_flags: u32,
+    // pub rules_channel_id: Option<String>,  // Snowflake
+    // pub max_presences: Option<u32>,
+    // pub max_members: Option<u32>,
+    // pub vanity_url_code: Option<String>,
+    // pub description: Option<String>,
+    // pub banner: Option<String>,
+    // pub premium_tier: u8,
+    // pub premium_subscription_count: Option<u32>,
+    // pub preferred_locale: String,
+    // pub public_updates_channel_id: Option<String>,  // Snowflake
+    // pub max_video_channel_users: Option<u32>,
+    // pub max_stage_video_channel_users: Option<u32>,
+    // pub approximate_member_count: Option<u32>,
+    // pub approximate_presence_count: Option<u32>,
+    // pub welcome_screen: Option<WelcomeScreen>,
+    // pub nsfw_level: u8,
+    // pub stickers: Option<Vec<Sticker>>,
+    // pub premium_progress_bar_enabled: bool,
+    // pub safety_alerts_channel_id: Option<String>,  // Snowflake
+    // pub incidents_data: Option<IncidentsData>,
+}
+
+impl Into<GlobalGuild> for Guild {
+    fn into(self) -> GlobalGuild {
+        GlobalGuild {
+            id: self.id,
+            name: self.name
+        }
+    }
 }

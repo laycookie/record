@@ -4,14 +4,11 @@ use async_trait::async_trait;
 
 use crate::{
     network::http_request,
-    types::{Conversation, Guild, User},
+    types::{Conversation, Guild as GlobalGuild, User},
     MessageLocation, MessangerQuery, ParameterizedMessangerQuery,
 };
 
-use super::{
-    json_structs::{Channel, Friend, Profile},
-    Discord,
-};
+use super::{ json_structs::{Channel, Friend, Profile, Guild}, Discord};
 
 impl Discord {
     fn get_auth_header(&self) -> Vec<(&str, String)> {
@@ -48,8 +45,15 @@ impl MessangerQuery for Discord {
             .map(|channel| channel.clone().into())
             .collect())
     }
-    async fn get_guilds(&self) -> Result<Vec<Guild>, Box<dyn Error>> {
-        todo!()
+    async fn get_guilds(&self) -> Result<Vec<GlobalGuild>, Box<dyn Error>> {
+        let guilds = http_request::<Vec<Guild>>(
+            surf::get("https://discord.com/api/v10/users/@me/guilds"),
+            self.get_auth_header(),
+        ).await?;
+        Ok(guilds
+            .iter()
+            .map(|guild| guild.clone().into())
+            .collect())
     }
 }
 
