@@ -1,16 +1,15 @@
-use std::{collections::HashMap, error::Error, rc::Rc};
+use std::{collections::HashMap, error::Error};
+
+use crate::AuthStore;
 
 use super::{MyAppMessage, Page};
-use adaptors::{
-    types::{Conversation, User},
-    Messanger as Auth,
-};
+use adaptors::types::Guild;
+use adaptors::types::{Conversation, User};
 use futures::try_join;
 use iced::{
     widget::{column, row, Button, Column, Text, TextInput},
     Length,
 };
-use adaptors::types::Guild;
 
 #[derive(Debug, Clone)]
 pub(super) enum Message {
@@ -27,8 +26,9 @@ impl Into<MyAppMessage> for Message {
 //
 
 pub struct MessangerWindow {
-    client_profile: User,
+    auth_store: *mut AuthStore,
     main: Main,
+    client_profile: User,
     conversation_center: ConversationData,
 }
 
@@ -37,24 +37,28 @@ enum Main {
     Chat(String),
 }
 
-
 struct ConversationData {
     conversations: Vec<Conversation>,
     contacts: Vec<User>,
-    // TODO: GUILDS GO HERE
     guilds: Vec<Guild>,
     chat: HashMap<String, String>,
 }
 
 impl MessangerWindow {
-    pub fn new(auths: &Vec<Rc<dyn Auth>>) -> Result<Self, Box<dyn Error>> {
-        let q = auths[0].query().unwrap();
-
+    pub fn new(auth_store: &mut AuthStore) -> Result<Self, Box<dyn Error>> {
         smol::block_on(async {
-            let (profile, conversations, contacts, guilds) =
-                try_join!(q.get_profile(), q.get_conversation(), q.get_contacts(), q.get_guilds())?;
+            let messangers = auth_store.get_messangers();
+            let q = messangers[0].auth.query().unwrap();
 
-            Ok(MessangerWindow {
+            let (profile, conversations, contacts, guilds) = try_join!(
+                q.get_profile(),
+                q.get_conversation(),
+                q.get_contacts(),
+                q.get_guilds()
+            )?;
+
+            let window = MessangerWindow {
+                auth_store,
                 client_profile: profile,
                 conversation_center: ConversationData {
                     guilds,
@@ -63,8 +67,13 @@ impl MessangerWindow {
                     chat: HashMap::new(),
                 },
                 main: Main::Contacts,
-            })
+            };
+
+            Ok(window)
         })
+    }
+    fn get_auth_store(&self) -> &AuthStore {
+        unsafe { &*self.auth_store }
     }
 }
 
@@ -72,7 +81,11 @@ impl Page for MessangerWindow {
     fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
         if let MyAppMessage::Chat(message) = message {
             match message {
-                Message::OpenConversation(id) => self.main = Main::Chat(id),
+                Message::OpenConversation(id) => {
+                    let a = self.get_auth_store();
+                    println!("{:#?}", id);
+                    self.main = Main::Chat(id);
+                }
                 Message::OpenContacts => self.main = Main::Contacts,
             }
         }
@@ -83,12 +96,12 @@ impl Page for MessangerWindow {
     fn view(&self) -> iced::Element<super::MyAppMessage> {
         let options = row![Text::new(&self.client_profile.username)];
 
-        let navbar = self.conversation_center
+        let navbar = self
+            .conversation_center
             .guilds
             .iter()
             .map(|i| Text::from(i.name.as_str()))
             .fold(Column::new(), |column, widget| column.push(widget));
-
 
         let sidebar = column![
             Button::new("Contacts").on_press(MyAppMessage::Chat(Message::OpenContacts)),

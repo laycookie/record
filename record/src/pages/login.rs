@@ -3,7 +3,7 @@ use iced::{
     widget::{column, combo_box::State, Button, Column, ComboBox, Container, TextInput},
     Alignment, Element,
 };
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 use strum::EnumString;
 
 use crate::auth::AuthStore;
@@ -25,9 +25,9 @@ impl Display for Platform {
     }
 }
 impl Platform {
-    pub fn to_messanger(&self, auth: String) -> Rc<dyn Messanger> {
+    pub fn to_messanger(&self, auth: String) -> Box<dyn Messanger> {
         match self {
-            Self::Discord => Rc::new(Discord::new(&auth)),
+            Self::Discord => Box::new(Discord::new(&auth)),
             Self::Test => todo!(),
         }
     }
@@ -87,12 +87,12 @@ impl Page for Login {
                     let auth = self.selected_platform.to_messanger(self.token.clone());
 
                     // Fetch data from auth
-                    let auths = vec![auth];
-                    let chat = MessangerWindow::new(&auths).unwrap();
+                    let auths = self.get_mut_auth();
+                    let chat = MessangerWindow::new(auths).unwrap();
 
                     // Store data in auth_store
                     let auth_store = self.get_mut_auth();
-                    auth_store.add_auth(auths[0].clone());
+                    auth_store.add_auth(auth);
 
                     // Pass fetched data into Chat
 

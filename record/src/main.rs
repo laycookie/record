@@ -31,8 +31,7 @@ impl Default for App {
         if auth_store.is_empty() {
             memoryless_page = Box::new(Login::new(&mut auth_store));
         } else {
-            let auths = auth_store.get_auths();
-            let m = MessangerWindow::new(&auths).unwrap();
+            let m = MessangerWindow::new(&mut auth_store).unwrap();
             memoryless_page = Box::new(m);
         }
 

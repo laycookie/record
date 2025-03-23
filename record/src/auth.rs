@@ -5,18 +5,18 @@ use std::{
     io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
     pin::Pin,
-    rc::Rc,
     str::FromStr,
 };
 
 use crate::pages::login::Platform;
 
-struct Messanger {
-    auth: Rc<dyn Auth>,
+// TODO: Check why this req. pub
+pub(crate) struct Messanger {
+    pub(crate) auth: Box<dyn Auth>,
     on_disk: bool,
 }
 
-type AuthChangeCallback = dyn Fn(Vec<Rc<dyn Auth>>) -> Pin<Box<dyn Future<Output = ()>>>;
+type AuthChangeCallback = dyn Fn(&[Messanger]) -> Pin<Box<dyn Future<Output = ()>>>;
 pub(super) struct AuthStore {
     messangers: Vec<Messanger>,
     file: File,
@@ -44,8 +44,8 @@ impl<'a> AuthStore {
             };
 
             // In theory should never return false
-            let auth: Rc<dyn Auth> = match Platform::from_str(platform).unwrap() {
-                Platform::Discord => Rc::new(Discord::new(token)),
+            let auth: Box<dyn Auth> = match Platform::from_str(platform).unwrap() {
+                Platform::Discord => Box::new(Discord::new(token)),
                 Platform::Test => todo!(),
             };
 
@@ -61,11 +61,9 @@ impl<'a> AuthStore {
         }
     }
 
-    pub fn get_auths(&self) -> Vec<Rc<dyn Auth>> {
-        self.messangers
-            .iter()
-            .map(|mes| mes.auth.clone())
-            .collect::<Vec<_>>()
+    // TODO: This should return a slice
+    pub fn get_messangers(&self) -> &[Messanger] {
+        &self.messangers[..]
     }
 
     pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
@@ -81,9 +79,18 @@ impl<'a> AuthStore {
         self.dispatch_callbacks();
     }
 
+    fn contains_auth(&self, auth: &Box<dyn Auth>) -> bool {
+        for i in self.get_messangers() {
+            if &i.auth == auth {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Does not trigger callbacks
-    pub fn add_auth(&mut self, auth: Rc<dyn Auth>) -> bool {
-        if !self.get_auths().contains(&auth) {
+    pub fn add_auth(&mut self, auth: Box<dyn Auth>) -> bool {
+        if !self.contains_auth(&auth) {
             self.messangers.push(Messanger {
                 auth,
                 on_disk: true,
@@ -98,7 +105,7 @@ impl<'a> AuthStore {
     pub fn dispatch_callbacks(&self) {
         smol::block_on(async {
             for c in self.auth_change_listeners.iter() {
-                let messangers = self.get_auths().to_owned();
+                let messangers = self.get_messangers();
                 c(messangers).await;
             }
         });
