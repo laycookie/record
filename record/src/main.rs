@@ -19,7 +19,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct App {
-    // TODO: This is a hack but as of now I don't now of a better way
     auth: Box<AuthStore>,
     memoryless_page: Box<dyn Page>,
 }

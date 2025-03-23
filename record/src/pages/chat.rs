@@ -14,7 +14,7 @@ use iced::{
 #[derive(Debug, Clone)]
 pub(super) enum Message {
     OpenContacts,
-    OpenConversation(String),
+    OpenConversation(Conversation),
 }
 
 // TODO: Automate
@@ -81,10 +81,18 @@ impl Page for MessangerWindow {
     fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
         if let MyAppMessage::Chat(message) = message {
             match message {
-                Message::OpenConversation(id) => {
-                    let a = self.get_auth_store();
-                    println!("{:#?}", id);
-                    self.main = Main::Chat(id);
+                Message::OpenConversation(conversation) => {
+                    let a = &self.get_auth_store().get_messangers()[0].auth;
+                    let pq = a.param_query().unwrap();
+
+                    smol::block_on(async {
+                        let mess = pq
+                            .get_messanges(conversation.platform_data.get_location())
+                            .await;
+                        println!("{:#?}", mess);
+                    });
+
+                    self.main = Main::Chat(conversation.name);
                 }
                 Message::OpenContacts => self.main = Main::Contacts,
             }
@@ -110,7 +118,7 @@ impl Page for MessangerWindow {
                 .iter()
                 .map(|i| {
                     Button::new(i.name.as_str())
-                        .on_press(Message::OpenConversation(i.id.clone()).into())
+                        .on_press(Message::OpenConversation(i.clone()).into())
                 })
                 .fold(Column::new(), |column, widget| column.push(widget))
                 .height(Length::Fill)

@@ -1,4 +1,4 @@
-use crate::{Messanger, MessangerQuery};
+use crate::{Messanger, MessangerQuery, ParameterizedMessangerQuery};
 
 pub mod json_structs;
 pub mod rest_api;
@@ -24,6 +24,9 @@ impl Messanger for Discord {
         self.token.clone()
     }
     fn query(&self) -> Option<&dyn MessangerQuery> {
+        Some(self)
+    }
+    fn param_query(&self) -> Option<&dyn ParameterizedMessangerQuery> {
         Some(self)
     }
 }

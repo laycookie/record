@@ -1,6 +1,9 @@
-use crate::types::{Conversation, User as GlobalUser, Guild as GlobalGuild};
+use crate::types::{
+    Conversation, Guild as GlobalGuild, Message as GlobalMessage, PlatformData, User as GlobalUser,
+};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
+
 // === Users ===
 
 #[derive(Deserialize)]
@@ -31,7 +34,6 @@ pub struct Profile {
 impl Into<GlobalUser> for Profile {
     fn into(self) -> GlobalUser {
         GlobalUser {
-            id: self.id,
             username: self.username,
         }
     }
@@ -47,6 +49,14 @@ pub struct User {
     username: String,
 }
 
+impl Into<GlobalUser> for User {
+    fn into(self) -> GlobalUser {
+        GlobalUser {
+            username: self.username,
+        }
+    }
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Friend {
     id: String,
@@ -59,7 +69,6 @@ pub struct Friend {
 impl Into<GlobalUser> for Friend {
     fn into(self) -> GlobalUser {
         GlobalUser {
-            id: self.id,
             username: self.user.username,
         }
     }
@@ -98,23 +107,25 @@ pub enum ChannelTypes {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Channel {
-    id: String,
+    pub(crate) id: String,
     #[serde(rename = "type")]
     channel_type: ChannelTypes,
     flags: i32,
     icon: Option<String>,
-    last_message_id: String,
+    pub last_message_id: String,
     name: Option<String>,
     recipients: Vec<Recipient>,
 }
 impl Into<Conversation> for Channel {
     fn into(self) -> Conversation {
+        let d = self.clone();
         Conversation {
             id: self.id,
             name: self.name.unwrap_or(match self.recipients.get(0) {
                 Some(test) => test.username.clone(),
                 None => "Fix later".to_string(),
             }),
+            platform_data: PlatformData::Discord(d),
         }
     }
 }
@@ -145,27 +156,37 @@ pub struct Reaction {
 
 #[derive(Deserialize, Debug)]
 pub struct Message {
-    attachments: Vec<String>,
+    // attachments: Vec<String>,
     author: User,
-    channel_id: String,
-    components: Vec<String>,
+    // channel_id: String,
+    // components: Vec<String>,
     content: String,
-    edited_timestamp: Option<String>,
-    embeds: Vec<u32>,
-    flags: u32,
-    id: String,
-    mention_everyone: bool,
+    // edited_timestamp: Option<String>,
+    // embeds: Vec<u32>,
+    // flags: u32,
+    // id: String,
+    // mention_everyone: bool,
     // mention_roles: Vec<String>,
     // mentions: Vec<String>,
-    pinned: bool,
-    reactions: Option<Vec<Reaction>>,
-    timestamp: String,
-    tts: bool,
+    // pinned: bool,
+    // reactions: Option<Vec<Reaction>>,
+    // timestamp: String,
+    // tts: bool,
     // type: u32,
 }
+
+impl From<&Message> for GlobalMessage {
+    fn from(value: &Message) -> Self {
+        Self {
+            sender: value.author.clone().into(),
+            text: value.content.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Guild {
-    pub id: String,  // Snowflake (usually a string for large numbers)
+    pub id: String, // Snowflake (usually a string for large numbers)
     pub name: String,
     // pub icon: Option<String>,
     // pub icon_hash: Option<String>,
@@ -213,9 +234,6 @@ pub struct Guild {
 
 impl Into<GlobalGuild> for Guild {
     fn into(self) -> GlobalGuild {
-        GlobalGuild {
-            id: self.id,
-            name: self.name
-        }
+        GlobalGuild { name: self.name }
     }
 }

@@ -16,6 +16,7 @@ pub(crate) struct Messanger {
     on_disk: bool,
 }
 
+// TODO Switch this to an async closures when we will update
 type AuthChangeCallback = dyn Fn(&[Messanger]) -> Pin<Box<dyn Future<Output = ()>>>;
 pub(super) struct AuthStore {
     messangers: Vec<Messanger>,
@@ -61,56 +62,6 @@ impl<'a> AuthStore {
         }
     }
 
-    // TODO: This should return a slice
-    pub fn get_messangers(&self) -> &[Messanger] {
-        &self.messangers[..]
-    }
-
-    pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
-        self.auth_change_listeners.push(callback);
-    }
-
-    pub fn retain<F>(&mut self, f: F)
-    where
-        F: FnMut(&Messanger) -> bool,
-    {
-        self.messangers.retain(f);
-        self.save_on_disk();
-        self.dispatch_callbacks();
-    }
-
-    fn contains_auth(&self, auth: &Box<dyn Auth>) -> bool {
-        for i in self.get_messangers() {
-            if &i.auth == auth {
-                return true;
-            }
-        }
-        false
-    }
-
-    /// Does not trigger callbacks
-    pub fn add_auth(&mut self, auth: Box<dyn Auth>) -> bool {
-        if !self.contains_auth(&auth) {
-            self.messangers.push(Messanger {
-                auth,
-                on_disk: true,
-            });
-            self.save_on_disk();
-            // self.dispatch_callbacks();
-            return true;
-        }
-        false
-    }
-
-    pub fn dispatch_callbacks(&self) {
-        smol::block_on(async {
-            for c in self.auth_change_listeners.iter() {
-                let messangers = self.get_messangers();
-                c(messangers).await;
-            }
-        });
-    }
-
     fn save_on_disk(&mut self) {
         // Preferably I should just be writing to a new file, and then
         // just swap the files when I'm finished writing, but realistically
@@ -128,7 +79,55 @@ impl<'a> AuthStore {
         });
     }
 
+    pub fn dispatch_callbacks(&self) {
+        smol::block_on(async {
+            for c in self.auth_change_listeners.iter() {
+                let messangers = self.get_messangers();
+                c(messangers).await;
+            }
+        });
+    }
+
     pub fn is_empty(&self) -> bool {
         self.messangers.is_empty()
+    }
+
+    fn contains_auth(&self, auth: &Box<dyn Auth>) -> bool {
+        for i in self.get_messangers() {
+            if &i.auth == auth {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn get_messangers(&self) -> &[Messanger] {
+        &self.messangers[..]
+    }
+
+    pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
+        self.auth_change_listeners.push(callback);
+    }
+
+    pub fn add_auth(&mut self, auth: Box<dyn Auth>) -> bool {
+        if !self.contains_auth(&auth) {
+            self.messangers.push(Messanger {
+                auth,
+                on_disk: true,
+            });
+            self.save_on_disk();
+            // self.dispatch_callbacks();
+            return true;
+        }
+        false
+    }
+
+    pub fn retain<F>(&mut self, f: F)
+    where
+        F: FnMut(&Messanger) -> bool,
+    {
+        self.messangers.retain(f);
+        self.save_on_disk();
+        self.dispatch_callbacks();
     }
 }

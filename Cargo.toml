@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
 	"adaptors",
+	"macro",
 	"record",
 	# "ui",
 ]

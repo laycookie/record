@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use async_trait::async_trait;
-use types::{Conversation, Guild, User};
+use types::{Conversation, Guild, Message, User};
 
 pub mod discord;
 mod network;
@@ -13,6 +13,9 @@ pub trait Messanger {
     fn auth(&self) -> String;
     // Features - TODO: Remove when up-casting will become stable https://github.com/rust-lang/rust/issues/65991
     fn query(&self) -> Option<&dyn MessangerQuery> {
+        None
+    }
+    fn param_query(&self) -> Option<&dyn ParameterizedMessangerQuery> {
         None
     }
 }
@@ -30,13 +33,13 @@ pub trait MessangerQuery {
     async fn get_guilds(&self) -> Result<Vec<Guild>, Box<dyn Error>>; // Large groups that can have over a 100 people in them.
 }
 
-// ===
-
-pub(crate) trait MessageLocation {
-    fn get_link(&self) -> String;
+// TODO: Autmoate its creation
+#[derive(Debug)]
+pub enum MsgLocation {
+    Discord { channed_id: String, before: String },
 }
 
 #[async_trait]
-trait ParameterizedMessangerQuery: Messanger {
-    async fn get_messanges(&self, location: &dyn MessageLocation) -> Result<(), surf::Error>;
+pub trait ParameterizedMessangerQuery {
+    async fn get_messanges(&self, location: MsgLocation) -> Result<Vec<Message>, Box<dyn Error>>;
 }
