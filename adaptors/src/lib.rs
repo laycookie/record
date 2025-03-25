@@ -7,8 +7,6 @@ pub mod discord;
 mod network;
 pub mod types;
 
-enum Platform {}
-
 pub trait Messanger {
     // ID & Auth
     fn name(&self) -> String;

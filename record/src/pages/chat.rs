@@ -12,7 +12,7 @@ use iced::{
 use smol::LocalExecutor;
 
 #[derive(Debug, Clone)]
-pub(super) enum Message {
+pub enum Message {
     OpenContacts,
     OpenConversation(MsgsStore),
 }

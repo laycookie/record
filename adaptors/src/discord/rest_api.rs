@@ -27,6 +27,7 @@ impl MessangerQuery for Discord {
             self.get_auth_header(),
         )
         .await?;
+
         Ok(profile.into())
     }
     async fn get_contacts(&self) -> Result<Vec<User>, Box<dyn Error>> {
@@ -71,7 +72,7 @@ impl ParameterizedMessangerQuery for Discord {
         load_from_msg: Option<GlobalMessage>,
     ) -> Result<Vec<GlobalMessage>, Box<dyn Error>> {
         let before = match load_from_msg {
-            Some(msg) => format!("?{:?}", msg.id),
+            Some(msg) => format!("?{}", msg.id),
             None => "".to_string(),
         };
 

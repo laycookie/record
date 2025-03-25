@@ -1,11 +1,11 @@
 use auth::AuthStore;
-use iced::{window, Element, Font, Task};
+use iced::{window, Element, Task};
 use pages::{chat::MessangerWindow, Login, MyAppMessage, Page};
 
 mod auth;
 mod pages;
 
-const ICON_FONT: Font = Font::with_name("icons");
+// const ICON_FONT: Font = Font::with_name("icons");
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting");
@@ -63,7 +63,7 @@ impl App {
             self.memoryless_page = p;
         }
     }
-    fn view(&self, window: window::Id) -> Element<MyAppMessage> {
+    fn view(&self, _window: window::Id) -> Element<MyAppMessage> {
         self.memoryless_page.view()
     }
     // fn view(&self) -> Element<MyAppMessage> {

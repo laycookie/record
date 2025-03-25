@@ -1,10 +1,8 @@
 use adaptors::{discord::Discord, Messanger as Auth};
 use std::{
     fs::{File, OpenOptions},
-    future::Future,
     io::{BufRead, BufReader, Seek, SeekFrom, Write},
     path::PathBuf,
-    pin::Pin,
     str::FromStr,
 };
 
@@ -17,11 +15,11 @@ pub(crate) struct Messanger {
 }
 
 // TODO Switch this to an async closures when we will update
-type AuthChangeCallback = dyn Fn(&[Messanger]) -> Pin<Box<dyn Future<Output = ()>>>;
+// type AuthChangeCallback = dyn Fn(&[Messanger]) -> Pin<Box<dyn Future<Output = ()>>>;
 pub(super) struct AuthStore {
     messangers: Vec<Messanger>,
     file: File,
-    auth_change_listeners: Vec<Box<AuthChangeCallback>>,
+    // auth_change_listeners: Vec<Box<AuthChangeCallback>>,
 }
 
 impl<'a> AuthStore {
@@ -58,7 +56,7 @@ impl<'a> AuthStore {
         AuthStore {
             file: auth_file,
             messangers,
-            auth_change_listeners: Vec::new(),
+            // auth_change_listeners: Vec::new(),
         }
     }
 
@@ -79,14 +77,14 @@ impl<'a> AuthStore {
         });
     }
 
-    pub fn dispatch_callbacks(&self) {
-        smol::block_on(async {
-            for c in self.auth_change_listeners.iter() {
-                let messangers = self.get_messangers();
-                c(messangers).await;
-            }
-        });
-    }
+    // pub fn dispatch_callbacks(&self) {
+    //     smol::block_on(async {
+    //         for c in self.auth_change_listeners.iter() {
+    //             let messangers = self.get_messangers();
+    //             c(messangers).await;
+    //         }
+    //     });
+    // }
 
     pub fn is_empty(&self) -> bool {
         self.messangers.is_empty()
@@ -104,13 +102,10 @@ impl<'a> AuthStore {
     pub fn get_messangers(&self) -> &[Messanger] {
         &self.messangers[..]
     }
-    pub fn get_mut_messangers(&mut self) -> &mut [Messanger] {
-        &mut self.messangers[..]
-    }
 
-    pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
-        self.auth_change_listeners.push(callback);
-    }
+    // pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
+    //     self.auth_change_listeners.push(callback);
+    // }
 
     pub fn add_auth(&mut self, auth: Box<dyn Auth>) -> bool {
         if !self.contains_auth(&auth) {
@@ -125,12 +120,12 @@ impl<'a> AuthStore {
         false
     }
 
-    pub fn retain<F>(&mut self, f: F)
-    where
-        F: FnMut(&Messanger) -> bool,
-    {
-        self.messangers.retain(f);
-        self.save_on_disk();
-        self.dispatch_callbacks();
-    }
+    // pub fn retain<F>(&mut self, f: F)
+    // where
+    //     F: FnMut(&Messanger) -> bool,
+    // {
+    //     self.messangers.retain(f);
+    //     self.save_on_disk();
+    //     self.dispatch_callbacks();
+    // }
 }
