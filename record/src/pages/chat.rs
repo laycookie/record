@@ -3,18 +3,18 @@ use std::{collections::HashMap, error::Error};
 use crate::AuthStore;
 
 use super::{MyAppMessage, Page};
-use adaptors::types::Guild;
-use adaptors::types::{Conversation, User};
+use adaptors::types::{MsgsStore, User};
 use futures::try_join;
 use iced::{
     widget::{column, row, Button, Column, Text, TextInput},
     Length,
 };
+use smol::LocalExecutor;
 
 #[derive(Debug, Clone)]
 pub(super) enum Message {
     OpenContacts,
-    OpenConversation(Conversation),
+    OpenConversation(MsgsStore),
 }
 
 // TODO: Automate
@@ -38,15 +38,17 @@ enum Main {
 }
 
 struct ConversationData {
-    conversations: Vec<Conversation>,
     contacts: Vec<User>,
-    guilds: Vec<Guild>,
+    conversations: Vec<MsgsStore>,
+    guilds: Vec<MsgsStore>,
     chat: HashMap<String, String>,
 }
 
 impl MessangerWindow {
     pub fn new(auth_store: &mut AuthStore) -> Result<Self, Box<dyn Error>> {
-        smol::block_on(async {
+        let ex = LocalExecutor::new();
+
+        smol::block_on(ex.run(async {
             let messangers = auth_store.get_messangers();
             let q = messangers[0].auth.query().unwrap();
 
@@ -70,7 +72,7 @@ impl MessangerWindow {
             };
 
             Ok(window)
-        })
+        }))
     }
     fn get_auth_store(&self) -> &AuthStore {
         unsafe { &*self.auth_store }
@@ -81,18 +83,16 @@ impl Page for MessangerWindow {
     fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
         if let MyAppMessage::Chat(message) = message {
             match message {
-                Message::OpenConversation(conversation) => {
+                Message::OpenConversation(msgs_store) => {
                     let a = &self.get_auth_store().get_messangers()[0].auth;
                     let pq = a.param_query().unwrap();
 
                     smol::block_on(async {
-                        let mess = pq
-                            .get_messanges(conversation.platform_data.get_location())
-                            .await;
+                        let mess = pq.get_messanges(msgs_store, None).await;
                         println!("{:#?}", mess);
                     });
 
-                    self.main = Main::Chat(conversation.name);
+                    // self.main = Main::Chat(conversation.name);
                 }
                 Message::OpenContacts => self.main = Main::Contacts,
             }
@@ -118,7 +118,7 @@ impl Page for MessangerWindow {
                 .iter()
                 .map(|i| {
                     Button::new(i.name.as_str())
-                        .on_press(Message::OpenConversation(i.clone()).into())
+                        .on_press(Message::OpenConversation(i.to_owned()).into())
                 })
                 .fold(Column::new(), |column, widget| column.push(widget))
                 .height(Length::Fill)

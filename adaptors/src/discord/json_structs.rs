@@ -1,6 +1,4 @@
-use crate::types::{
-    Conversation, Guild as GlobalGuild, Message as GlobalMessage, PlatformData, User as GlobalUser,
-};
+use crate::types::{Message as GlobalMessage, MsgsStore, MsgsStoreTypes, User as GlobalUser};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 
@@ -116,16 +114,17 @@ pub struct Channel {
     name: Option<String>,
     recipients: Vec<Recipient>,
 }
-impl Into<Conversation> for Channel {
-    fn into(self) -> Conversation {
+impl Into<MsgsStore> for &Channel {
+    fn into(self) -> MsgsStore {
         let d = self.clone();
-        Conversation {
-            id: self.id,
-            name: self.name.unwrap_or(match self.recipients.get(0) {
+        MsgsStore {
+            hash: None,
+            id: self.id.clone(),
+            _type: MsgsStoreTypes::Conversation,
+            name: self.clone().name.unwrap_or(match self.recipients.get(0) {
                 Some(test) => test.username.clone(),
                 None => "Fix later".to_string(),
             }),
-            platform_data: PlatformData::Discord(d),
         }
     }
 }
@@ -164,7 +163,7 @@ pub struct Message {
     // edited_timestamp: Option<String>,
     // embeds: Vec<u32>,
     // flags: u32,
-    // id: String,
+    id: String,
     // mention_everyone: bool,
     // mention_roles: Vec<String>,
     // mentions: Vec<String>,
@@ -178,6 +177,7 @@ pub struct Message {
 impl From<&Message> for GlobalMessage {
     fn from(value: &Message) -> Self {
         Self {
+            id: value.id.clone(),
             sender: value.author.clone().into(),
             text: value.content.clone(),
         }
@@ -232,8 +232,13 @@ pub struct Guild {
     // pub incidents_data: Option<IncidentsData>,
 }
 
-impl Into<GlobalGuild> for Guild {
-    fn into(self) -> GlobalGuild {
-        GlobalGuild { name: self.name }
+impl Into<MsgsStore> for &Guild {
+    fn into(self) -> MsgsStore {
+        MsgsStore {
+            hash: None,
+            id: self.id.clone(),
+            _type: MsgsStoreTypes::Guild,
+            name: self.name.clone(),
+        }
     }
 }

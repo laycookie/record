@@ -3,15 +3,14 @@ use std::error::Error;
 use async_trait::async_trait;
 
 use crate::{
-    discord::json_structs::Message,
+    MessangerQuery, ParameterizedMessangerQuery,
     network::http_request,
-    types::{Conversation, Guild as GlobalGuild, Message as GlobalMessage, User},
-    MessangerQuery, MsgLocation, ParameterizedMessangerQuery,
+    types::{Message as GlobalMessage, MsgsStore, User},
 };
 
 use super::{
-    json_structs::{Channel, Friend, Guild, Profile},
     Discord,
+    json_structs::{Channel, Friend, Guild, Message, Profile},
 };
 
 impl Discord {
@@ -20,7 +19,7 @@ impl Discord {
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl MessangerQuery for Discord {
     async fn get_profile(&self) -> Result<User, Box<dyn Error>> {
         let profile = http_request::<Profile>(
@@ -38,41 +37,48 @@ impl MessangerQuery for Discord {
         .await?;
         Ok(friends.iter().map(|friend| friend.clone().into()).collect())
     }
-    async fn get_conversation(&self) -> Result<Vec<Conversation>, Box<dyn Error>> {
+    async fn get_conversation(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>> {
         let channels = http_request::<Vec<Channel>>(
             surf::get("https://discord.com/api/v10/users/@me/channels"),
             self.get_auth_header(),
         )
         .await?;
-        Ok(channels
+
+        let conversations = channels
             .iter()
-            .map(|channel| channel.clone().into())
-            .collect())
+            .map(|channel| channel.into())
+            .collect::<Vec<_>>();
+
+        self.dms.set(channels);
+
+        Ok(conversations)
     }
-    async fn get_guilds(&self) -> Result<Vec<GlobalGuild>, Box<dyn Error>> {
+    async fn get_guilds(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>> {
         let guilds = http_request::<Vec<Guild>>(
             surf::get("https://discord.com/api/v10/users/@me/guilds"),
             self.get_auth_header(),
         )
         .await?;
-        Ok(guilds.iter().map(|guild| guild.clone().into()).collect())
+        Ok(guilds.iter().map(|guild| guild.into()).collect())
     }
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl ParameterizedMessangerQuery for Discord {
     async fn get_messanges(
         &self,
-        location: MsgLocation,
+        msgs_location: MsgsStore,
+        load_from_msg: Option<GlobalMessage>,
     ) -> Result<Vec<GlobalMessage>, Box<dyn Error>> {
-        let MsgLocation::Discord { channed_id, before } = location else {
-            return Err(panic!("temp"));
+        let before = match load_from_msg {
+            Some(msg) => format!("?{:?}", msg.id),
+            None => "".to_string(),
         };
 
         let messages = http_request::<Vec<Message>>(
             surf::get(format!(
-                "https://discord.com/api/v10/channels/{}/messages?{}",
-                channed_id, before,
+                "https://discord.com/api/v10/channels/{}/messages{}",
+                msgs_location.id, before,
             )),
             self.get_auth_header(),
         )

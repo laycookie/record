@@ -104,6 +104,9 @@ impl<'a> AuthStore {
     pub fn get_messangers(&self) -> &[Messanger] {
         &self.messangers[..]
     }
+    pub fn get_mut_messangers(&mut self) -> &mut [Messanger] {
+        &mut self.messangers[..]
+    }
 
     pub fn add_listner(&mut self, callback: Box<AuthChangeCallback>) {
         self.auth_change_listeners.push(callback);
