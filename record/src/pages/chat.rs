@@ -6,8 +6,8 @@ use super::{MyAppMessage, Page};
 use adaptors::types::{MsgsStore, User};
 use futures::try_join;
 use iced::{
-    widget::{column, row, Button, Column, Text, TextInput},
-    Length,
+    widget::{column, image, row, Button, Column, Text, TextInput},
+    ContentFit, Length,
 };
 use smol::LocalExecutor;
 
@@ -108,7 +108,21 @@ impl Page for MessangerWindow {
             .conversation_center
             .guilds
             .iter()
-            .map(|i| Text::from(i.name.as_str()))
+            .map(|i| {
+                let image = match &i.icon {
+                    Some(icon) => {
+                        println!("{:?}", icon);
+                        image(icon)
+                    }
+                    None => image("./public/imgs/placeholder.jpg"),
+                };
+                Button::new(
+                    image
+                        .height(Length::Fixed(48.0))
+                        .width(Length::Fixed(48.0))
+                        .content_fit(ContentFit::Cover),
+                )
+            })
             .fold(Column::new(), |column, widget| column.push(widget));
 
         let sidebar = column![

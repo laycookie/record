@@ -1,4 +1,9 @@
-use std::error::Error;
+use std::{
+    error::Error,
+    fs::{self, File},
+    io::Write,
+    path::PathBuf,
+};
 
 use serde::de::DeserializeOwned;
 use surf::{RequestBuilder, StatusCode};
@@ -23,4 +28,37 @@ pub async fn http_request<T: DeserializeOwned>(
 
     let json = res.body_json::<T>().await?;
     Ok(json)
+}
+
+pub async fn cache_download(
+    url: impl Into<String>,
+    path: PathBuf,
+    file_name: impl Into<String>,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let file_path = path.join(file_name.into());
+    if file_path.exists() {
+        return Ok(file_path);
+    };
+
+    let url = url.into();
+    let req = surf::get(&url);
+    let mut res = req.send().await.unwrap();
+
+    let StatusCode::Ok = res.status() else {
+        panic!("{}", url);
+    };
+
+    // Create a file at the specified path
+    match fs::create_dir_all(path.clone()) {
+        Ok(_) => println!("Directory created successfully."),
+        Err(e) => eprintln!("Failed to create directory: {}", e),
+    }
+
+    let mut file = File::create(&file_path)?;
+
+    // Copy the content from the response to the file
+    let bytes = res.body_bytes().await?;
+    file.write_all(&bytes)?;
+
+    Ok(file_path)
 }

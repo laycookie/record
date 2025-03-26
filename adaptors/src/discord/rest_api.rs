@@ -1,10 +1,11 @@
 use std::error::Error;
 
 use async_trait::async_trait;
+use futures::future::join_all;
 
 use crate::{
     MessangerQuery, ParameterizedMessangerQuery,
-    network::http_request,
+    network::{cache_download, http_request},
     types::{Message as GlobalMessage, MsgsStore, User},
 };
 
@@ -60,7 +61,37 @@ impl MessangerQuery for Discord {
             self.get_auth_header(),
         )
         .await?;
-        Ok(guilds.iter().map(|guild| guild.into()).collect())
+
+        let a = guilds.iter().map(async move |g| {
+            let Some(hash) = &g.icon else {
+                return MsgsStore {
+                    id: g.id.clone(),
+                    name: g.name.clone(),
+                    icon: None,
+                };
+            };
+
+            // TODO: Deal with this possibly failing
+            let icon = cache_download(
+                format!(
+                    "https://cdn.discordapp.com/icons/{}/{}.webp?size=80&quality=lossless",
+                    g.id, hash
+                ),
+                format!("./cache/discord/guilds/{}/imgs/", g.id).into(),
+                format!("{}.webp", hash),
+            )
+            .await
+            .unwrap();
+
+            MsgsStore {
+                // hash: None,
+                id: g.id.clone(),
+                name: g.name.clone(),
+                icon: Some(icon),
+            }
+        });
+
+        Ok(join_all(a).await)
     }
 }
 

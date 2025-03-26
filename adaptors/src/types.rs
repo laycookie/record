@@ -1,15 +1,11 @@
-#[derive(Debug, Clone)]
-pub enum MsgsStoreTypes {
-    Conversation,
-    Guild,
-}
+use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct MsgsStore {
     // pub(crate) hash: Option<String>, // Used in cases where ID can change
     pub(crate) id: String, // ID of a location
-    pub(crate) _type: MsgsStoreTypes,
     pub name: String,
+    pub icon: Option<PathBuf>,
 }
 
 #[derive(Debug)]
