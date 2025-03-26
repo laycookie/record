@@ -1,15 +1,13 @@
 use std::{collections::HashMap, error::Error};
-
+use std::path::Path;
 use crate::AuthStore;
 
 use super::{MyAppMessage, Page};
 use adaptors::types::Guild;
 use adaptors::types::{Conversation, User};
-use futures::try_join;
-use iced::{
-    widget::{column, row, Button, Column, Text, TextInput},
-    Length,
-};
+use futures::{stream, try_join, FutureExt};
+use iced::{widget::{column, row, Button, Column, Text, TextInput}, ContentFit, Length};
+use iced::widget::image;
 
 #[derive(Debug, Clone)]
 pub(super) enum Message {
@@ -57,6 +55,7 @@ impl MessangerWindow {
                 q.get_guilds()
             )?;
 
+
             let window = MessangerWindow {
                 auth_store,
                 client_profile: profile,
@@ -100,7 +99,15 @@ impl Page for MessangerWindow {
             .conversation_center
             .guilds
             .iter()
-            .map(|i| Text::from(i.name.as_str()))
+            .map(|i| {
+                let image = match &i.icon {
+                    Some(_) => image(format!("./cache/discord/guilds/imgs/{}.png", i.id)),
+                    None => image("./public/imgs/default_placeholder.png"),
+                };
+                Button::new(image.height(Length::Fixed(48.0))
+                     .width(Length::Fixed(48.0))
+                     .content_fit(ContentFit::Cover))
+            })
             .fold(Column::new(), |column, widget| column.push(widget));
 
         let sidebar = column![
@@ -109,7 +116,13 @@ impl Page for MessangerWindow {
                 .conversations
                 .iter()
                 .map(|i| {
-                    Button::new(i.name.as_str())
+                let image = match &i.icon {
+                    Some(_) => image(format!("./cache/discord/channels/imgs/{}.png", i.id)),
+                    None => image("./public/imgs/default_placeholder.png"),
+                };
+                    Button::new(row![image.height(Length::Fixed(48.0))
+                     .width(Length::Fixed(48.0))
+                     .content_fit(ContentFit::Cover), i.name.as_str()])
                         .on_press(Message::OpenConversation(i.id.clone()).into())
                 })
                 .fold(Column::new(), |column, widget| column.push(widget))

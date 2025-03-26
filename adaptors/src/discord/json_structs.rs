@@ -66,12 +66,12 @@ impl Into<GlobalUser> for Friend {
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Recipient {
-    avatar: Option<String>,
+    pub(crate) avatar: Option<String>,
     avatar_decoration_data: Option<String>,
     clan: Option<String>,
     discriminator: String,
     global_name: Option<String>,
-    id: String,
+    pub(crate) id: String,
     public_flags: i32,
     username: String,
 }
@@ -98,14 +98,14 @@ pub enum ChannelTypes {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Channel {
-    id: String,
+    pub(crate) id: String,
     #[serde(rename = "type")]
     channel_type: ChannelTypes,
     flags: i32,
-    icon: Option<String>,
-    last_message_id: String,
+    pub(crate) icon: Option<String>,
+    last_message_id: Option<String>,
     name: Option<String>,
-    recipients: Vec<Recipient>,
+    pub(crate) recipients: Vec<Recipient>,
 }
 impl Into<Conversation> for Channel {
     fn into(self) -> Conversation {
@@ -115,6 +115,11 @@ impl Into<Conversation> for Channel {
                 Some(test) => test.username.clone(),
                 None => "Fix later".to_string(),
             }),
+            icon: match self.channel_type {
+                ChannelTypes::DM => self.recipients.get(0).and_then(|r| r.avatar.clone()),
+                ChannelTypes::GroupDM => self.icon,
+                _ => None,
+            }
         }
     }
 }
@@ -165,9 +170,9 @@ pub struct Message {
 }
 #[derive(Debug, Deserialize, Clone)]
 pub struct Guild {
-    pub id: String,  // Snowflake (usually a string for large numbers)
+    pub id: String,
     pub name: String,
-    // pub icon: Option<String>,
+    pub icon: Option<String>,
     // pub icon_hash: Option<String>,
     // pub splash: Option<String>,
     // pub discovery_splash: Option<String>,
@@ -215,7 +220,8 @@ impl Into<GlobalGuild> for Guild {
     fn into(self) -> GlobalGuild {
         GlobalGuild {
             id: self.id,
-            name: self.name
+            name: self.name,
+            icon: self.icon,
         }
     }
 }
