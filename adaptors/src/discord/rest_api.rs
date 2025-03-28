@@ -1,7 +1,7 @@
+use async_trait::async_trait;
+use futures::future::join_all;
 use std::error::Error;
 use std::path::PathBuf;
-use async_trait::async_trait;
-use futures::future::try_join_all;
 
 use crate::{
     MessangerQuery, ParameterizedMessangerQuery,
@@ -27,7 +27,7 @@ impl MessangerQuery for Discord {
             surf::get("https://discord.com/api/v9/users/@me"),
             self.get_auth_header(),
         )
-            .await?;
+        .await?;
 
         Ok(profile.into())
     }
@@ -35,47 +35,53 @@ impl MessangerQuery for Discord {
         let friends = http_request::<Vec<Friend>>(
             surf::get("https://discord.com/api/v9/users/@me/relationships"),
             self.get_auth_header(),
-        ).await?;
+        )
+        .await?;
         Ok(friends.iter().map(|friend| friend.clone().into()).collect())
     }
     async fn get_conversation(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>> {
         let channels = http_request::<Vec<Channel>>(
             surf::get("https://discord.com/api/v10/users/@me/channels"),
             self.get_auth_header(),
-        ).await?;
+        )
+        .await?;
 
-        let a = channels.iter().map(async move |g| -> Result<MsgsStore, Box<dyn Error>> {
-            let Some(hash) = &g.icon else {
-                return Ok(MsgsStore {
+        let a = channels
+            .iter()
+            .map(async move |g| -> Result<MsgsStore, Box<dyn Error>> {
+                let Some(hash) = &g.icon else {
+                    return Ok(MsgsStore {
+                        id: g.id.clone(),
+                        name: g.clone().name.unwrap_or(match g.recipients.get(0) {
+                            Some(test) => test.username.clone(),
+                            None => "Fix later".to_string(),
+                        }),
+                        icon: None,
+                    });
+                };
+
+                // TODO: Deal with this possibly failing
+                let icon = cache_download(
+                    format!(
+                        "https://cdn.discordapp.com/icons/{}/{}.webp?size=80&quality=lossless",
+                        g.id, hash
+                    ),
+                    format!("./cache/discord/guilds/{}/imgs/", g.id).into(),
+                    format!("{}.webp", hash),
+                )
+                .await
+                .unwrap_or(PathBuf::from("./public/imgs/404error.jpg"));
+
+                Ok(MsgsStore {
+                    // hash: None,
                     id: g.id.clone(),
                     name: g.clone().name.unwrap_or(match g.recipients.get(0) {
                         Some(test) => test.username.clone(),
                         None => "Fix later".to_string(),
                     }),
-                    icon: None,
-                });
-            };
-
-            // TODO: Deal with this possibly failing
-            let icon = cache_download(
-                format!(
-                    "https://cdn.discordapp.com/icons/{}/{}.webp?size=80&quality=lossless",
-                    g.id, hash
-                ),
-                format!("./cache/discord/guilds/{}/imgs/", g.id).into(),
-                format!("{}.webp", hash),
-            ).await.unwrap_or(PathBuf::from("./public/imgs/404error.jpg"));
-
-            Ok(MsgsStore {
-                // hash: None,
-                id: g.id.clone(),
-                name: g.clone().name.unwrap_or(match g.recipients.get(0) {
-                    Some(test) => test.username.clone(),
-                    None => "Fix later".to_string(),
-                }),
-                icon: Some(icon),
-            })
-        });
+                    icon: Some(icon),
+                })
+            });
 
         let conversations = channels
             .iter()
@@ -91,15 +97,15 @@ impl MessangerQuery for Discord {
             surf::get("https://discord.com/api/v10/users/@me/guilds"),
             self.get_auth_header(),
         )
-            .await?;
+        .await?;
 
-        let a = guilds.iter().map(async move |g| -> Result<MsgsStore, Box<dyn Error>> {
+        let a = guilds.iter().map(async move |g| {
             let Some(hash) = &g.icon else {
-                return Ok(MsgsStore {
+                return MsgsStore {
                     id: g.id.clone(),
                     name: g.name.clone(),
                     icon: None,
-                });
+                };
             };
 
             // TODO: Deal with this possibly failing
@@ -110,17 +116,24 @@ impl MessangerQuery for Discord {
                 ),
                 format!("./cache/discord/guilds/{}/imgs/", g.id).into(),
                 format!("{}.webp", hash),
-            ).await.unwrap_or(PathBuf::from("./public/imgs/404error.jpg"));
+            )
+            .await;
 
-            Ok(MsgsStore {
+            MsgsStore {
                 // hash: None,
                 id: g.id.clone(),
                 name: g.name.clone(),
-                icon: Some(icon),
-            })
+                icon: match icon {
+                    Ok(path) => Some(path),
+                    Err(e) => {
+                        eprintln!("Failed to download icon for guild: {}\n{}", g.name, e);
+                        None
+                    }
+                },
+            }
         });
 
-        Ok(try_join_all(a).await?)
+        Ok(join_all(a).await)
     }
 }
 
@@ -143,7 +156,7 @@ impl ParameterizedMessangerQuery for Discord {
             )),
             self.get_auth_header(),
         )
-            .await?;
+        .await?;
 
         Ok(messages.iter().map(|message| message.into()).collect())
     }
