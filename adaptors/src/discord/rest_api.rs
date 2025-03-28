@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use futures::future::join_all;
 use std::error::Error;
-use std::path::PathBuf;
 
 use crate::{
     MessangerQuery, ParameterizedMessangerQuery,
@@ -44,44 +43,7 @@ impl MessangerQuery for Discord {
             surf::get("https://discord.com/api/v10/users/@me/channels"),
             self.get_auth_header(),
         )
-        .await?;
-
-        let a = channels
-            .iter()
-            .map(async move |g| -> Result<MsgsStore, Box<dyn Error>> {
-                let Some(hash) = &g.icon else {
-                    return Ok(MsgsStore {
-                        id: g.id.clone(),
-                        name: g.clone().name.unwrap_or(match g.recipients.get(0) {
-                            Some(test) => test.username.clone(),
-                            None => "Fix later".to_string(),
-                        }),
-                        icon: None,
-                    });
-                };
-
-                // TODO: Deal with this possibly failing
-                let icon = cache_download(
-                    format!(
-                        "https://cdn.discordapp.com/icons/{}/{}.webp?size=80&quality=lossless",
-                        g.id, hash
-                    ),
-                    format!("./cache/discord/guilds/{}/imgs/", g.id).into(),
-                    format!("{}.webp", hash),
-                )
-                .await
-                .unwrap_or(PathBuf::from("./public/imgs/404error.jpg"));
-
-                Ok(MsgsStore {
-                    // hash: None,
-                    id: g.id.clone(),
-                    name: g.clone().name.unwrap_or(match g.recipients.get(0) {
-                        Some(test) => test.username.clone(),
-                        None => "Fix later".to_string(),
-                    }),
-                    icon: Some(icon),
-                })
-            });
+            .await?;
 
         let conversations = channels
             .iter()
