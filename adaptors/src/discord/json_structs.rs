@@ -83,7 +83,7 @@ pub struct Recipient {
     // global_name: Option<String>,
     // id: String,
     // public_flags: i32,
-    username: String,
+    pub(crate) username: String,
 }
 
 // === Chennels ===
@@ -109,13 +109,13 @@ pub enum ChannelTypes {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Channel {
     pub(crate) id: String,
-    // #[serde(rename = "type")]
-    // channel_type: ChannelTypes,
+    #[serde(rename = "type")]
+    channel_type: ChannelTypes,
     // flags: i32,
-    icon: Option<String>,
+    pub(crate) icon: Option<String>,
     pub last_message_id: Option<String>,
-    name: Option<String>,
-    recipients: Vec<Recipient>,
+    pub(crate) name: Option<String>,
+    pub(crate) recipients: Vec<Recipient>,
 }
 impl From<&Channel> for MsgsStore {
     fn from(val: &Channel) -> Self {

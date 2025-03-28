@@ -1,7 +1,6 @@
-use std::error::Error;
-
 use async_trait::async_trait;
 use futures::future::join_all;
+use std::error::Error;
 
 use crate::{
     MessangerQuery, ParameterizedMessangerQuery,
@@ -44,8 +43,9 @@ impl MessangerQuery for Discord {
             surf::get("https://discord.com/api/v10/users/@me/channels"),
             self.get_auth_header(),
         )
-        .await?;
+            .await?;
 
+        
         let conversations = channels
             .iter()
             .map(|channel| channel.into())
@@ -80,14 +80,19 @@ impl MessangerQuery for Discord {
                 format!("./cache/discord/guilds/{}/imgs/", g.id).into(),
                 format!("{}.webp", hash),
             )
-            .await
-            .unwrap();
+            .await;
 
             MsgsStore {
                 // hash: None,
                 id: g.id.clone(),
                 name: g.name.clone(),
-                icon: Some(icon),
+                icon: match icon {
+                    Ok(path) => Some(path),
+                    Err(e) => {
+                        eprintln!("Failed to download icon for guild: {}\n{}", g.name, e);
+                        None
+                    }
+                },
             }
         });
 
