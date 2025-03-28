@@ -34,18 +34,18 @@ pub async fn cache_download(
     url: impl Into<String>,
     path: PathBuf,
     file_name: impl Into<String>,
-) -> Result<PathBuf, Box<dyn std::error::Error>> {
+) -> Result<PathBuf, Box<dyn Error>> {
     let file_path = path.join(file_name.into());
-    if file_path.exists() {
-        return Ok(file_path);
-    };
+    // if file_path.exists() {
+    //     return Ok(file_path);
+    // };
 
     let url = url.into();
     let req = surf::get(&url);
-    let mut res = req.send().await.unwrap();
-
+    let mut res = req.send().await?;
+    
     let StatusCode::Ok = res.status() else {
-        panic!("{}", url);
+        return Err(format!("Failed to download file. Status: {}", res.status()).into());
     };
 
     // Create a file at the specified path
