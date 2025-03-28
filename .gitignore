@@ -1,4 +1,5 @@
 /target
 /public/LoginInfo
+/cache/**
 
 /.idea

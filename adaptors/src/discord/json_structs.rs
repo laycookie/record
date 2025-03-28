@@ -1,4 +1,4 @@
-use crate::types::{Message as GlobalMessage, MsgsStore, MsgsStoreTypes, User as GlobalUser};
+use crate::types::{Message as GlobalMessage, MsgsStore, User as GlobalUser};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
 
@@ -109,11 +109,11 @@ pub enum ChannelTypes {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Channel {
     pub(crate) id: String,
-    #[serde(rename = "type")]
+    // #[serde(rename = "type")]
     // channel_type: ChannelTypes,
     // flags: i32,
-    // icon: Option<String>,
-    pub last_message_id: String,
+    icon: Option<String>,
+    pub last_message_id: Option<String>,
     name: Option<String>,
     recipients: Vec<Recipient>,
 }
@@ -122,11 +122,11 @@ impl From<&Channel> for MsgsStore {
         MsgsStore {
             // hash: None,
             id: val.id.clone(),
-            _type: MsgsStoreTypes::Conversation,
             name: val.clone().name.unwrap_or(match val.recipients.get(0) {
                 Some(test) => test.username.clone(),
                 None => "Fix later".to_string(),
             }),
+            icon: None,
         }
     }
 }
@@ -190,7 +190,7 @@ impl From<&Message> for GlobalMessage {
 pub struct Guild {
     pub id: String, // Snowflake (usually a string for large numbers)
     pub name: String,
-    // pub icon: Option<String>,
+    pub icon: Option<String>,
     // pub icon_hash: Option<String>,
     // pub splash: Option<String>,
     // pub discovery_splash: Option<String>,
@@ -239,8 +239,8 @@ impl Into<MsgsStore> for &Guild {
         MsgsStore {
             // hash: None,
             id: self.id.clone(),
-            _type: MsgsStoreTypes::Guild,
             name: self.name.clone(),
+            icon: None,
         }
     }
 }
