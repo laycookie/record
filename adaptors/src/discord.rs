@@ -1,17 +1,21 @@
-use crate::{Messanger, MessangerQuery};
+use std::cell::Cell;
+
+use crate::{Messanger, MessangerQuery, ParameterizedMessangerQuery};
 
 pub mod json_structs;
 pub mod rest_api;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Discord {
-    token: String, // TODO: Make it unsecure
+    token: String, // TODO: Make it secure
+    // Data
+    dms: Cell<Vec<json_structs::Channel>>,
 }
 
 impl Discord {
     pub fn new(token: &str) -> Discord {
         Discord {
             token: token.into(),
+            dms: Cell::new(Vec::new()),
         }
     }
 }
@@ -24,6 +28,9 @@ impl Messanger for Discord {
         self.token.clone()
     }
     fn query(&self) -> Option<&dyn MessangerQuery> {
+        Some(self)
+    }
+    fn param_query(&self) -> Option<&dyn ParameterizedMessangerQuery> {
         Some(self)
     }
 }

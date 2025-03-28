@@ -1,18 +1,20 @@
 use std::{collections::HashMap, error::Error};
-use std::path::Path;
+
 use crate::AuthStore;
 
 use super::{MyAppMessage, Page};
-use adaptors::types::Guild;
-use adaptors::types::{Conversation, User};
-use futures::{stream, try_join, FutureExt};
-use iced::{widget::{column, row, Button, Column, Text, TextInput}, ContentFit, Length};
-use iced::widget::image;
+use adaptors::types::{MsgsStore, User};
+use futures::try_join;
+use iced::{
+    widget::{column, image, row, Button, Column, Text, TextInput},
+    ContentFit, Length,
+};
+use smol::LocalExecutor;
 
 #[derive(Debug, Clone)]
-pub(super) enum Message {
+pub enum Message {
     OpenContacts,
-    OpenConversation(String),
+    OpenConversation(MsgsStore),
 }
 
 // TODO: Automate
@@ -36,15 +38,17 @@ enum Main {
 }
 
 struct ConversationData {
-    conversations: Vec<Conversation>,
     contacts: Vec<User>,
-    guilds: Vec<Guild>,
+    conversations: Vec<MsgsStore>,
+    guilds: Vec<MsgsStore>,
     chat: HashMap<String, String>,
 }
 
 impl MessangerWindow {
     pub fn new(auth_store: &mut AuthStore) -> Result<Self, Box<dyn Error>> {
-        smol::block_on(async {
+        let ex = LocalExecutor::new();
+
+        smol::block_on(ex.run(async {
             let messangers = auth_store.get_messangers();
             let q = messangers[0].auth.query().unwrap();
 
@@ -54,7 +58,6 @@ impl MessangerWindow {
                 q.get_contacts(),
                 q.get_guilds()
             )?;
-
 
             let window = MessangerWindow {
                 auth_store,
@@ -69,7 +72,7 @@ impl MessangerWindow {
             };
 
             Ok(window)
-        })
+        }))
     }
     fn get_auth_store(&self) -> &AuthStore {
         unsafe { &*self.auth_store }
@@ -80,10 +83,16 @@ impl Page for MessangerWindow {
     fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
         if let MyAppMessage::Chat(message) = message {
             match message {
-                Message::OpenConversation(id) => {
-                    let a = self.get_auth_store();
-                    println!("{:#?}", id);
-                    self.main = Main::Chat(id);
+                Message::OpenConversation(msgs_store) => {
+                    let a = &self.get_auth_store().get_messangers()[0].auth;
+                    let pq = a.param_query().unwrap();
+
+                    smol::block_on(async {
+                        let mess = pq.get_messanges(msgs_store, None).await;
+                        println!("{:#?}", mess);
+                    });
+
+                    // self.main = Main::Chat(conversation.name);
                 }
                 Message::OpenContacts => self.main = Main::Contacts,
             }
@@ -101,12 +110,18 @@ impl Page for MessangerWindow {
             .iter()
             .map(|i| {
                 let image = match &i.icon {
-                    Some(_) => image(format!("./cache/discord/guilds/imgs/{}.png", i.id)),
-                    None => image("./public/imgs/default_placeholder.png"),
+                    Some(icon) => {
+                        println!("{:?}", icon);
+                        image(icon)
+                    }
+                    None => image("./public/imgs/placeholder.jpg"),
                 };
-                Button::new(image.height(Length::Fixed(48.0))
-                     .width(Length::Fixed(48.0))
-                     .content_fit(ContentFit::Cover))
+                Button::new(
+                    image
+                        .height(Length::Fixed(48.0))
+                        .width(Length::Fixed(48.0))
+                        .content_fit(ContentFit::Cover),
+                )
             })
             .fold(Column::new(), |column, widget| column.push(widget));
 
@@ -116,14 +131,8 @@ impl Page for MessangerWindow {
                 .conversations
                 .iter()
                 .map(|i| {
-                let image = match &i.icon {
-                    Some(_) => image(format!("./cache/discord/channels/imgs/{}.png", i.id)),
-                    None => image("./public/imgs/default_placeholder.png"),
-                };
-                    Button::new(row![image.height(Length::Fixed(48.0))
-                     .width(Length::Fixed(48.0))
-                     .content_fit(ContentFit::Cover), i.name.as_str()])
-                        .on_press(Message::OpenConversation(i.id.clone()).into())
+                    Button::new(i.name.as_str())
+                        .on_press(Message::OpenConversation(i.to_owned()).into())
                 })
                 .fold(Column::new(), |column, widget| column.push(widget))
                 .height(Length::Fill)

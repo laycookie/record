@@ -1,78 +1,88 @@
-use crate::types::{Conversation, User as GlobalUser, Guild as GlobalGuild};
+use crate::types::{Message as GlobalMessage, MsgsStore, User as GlobalUser};
 use serde::Deserialize;
 use serde_repr::Deserialize_repr;
+
 // === Users ===
 
 #[derive(Deserialize)]
 pub struct Profile {
-    accent_color: Option<String>,
-    authenticator_types: Vec<String>,
-    avatar: Option<String>,
-    avatar_decoration_data: Option<String>,
-    banner: Option<String>,
-    banner_color: Option<String>,
-    bio: String,
-    clan: Option<String>,
-    discriminator: String,
-    email: String,
-    flags: i32,
-    global_name: String,
+    // accent_color: Option<String>,
+    // authenticator_types: Vec<String>,
+    // avatar: Option<String>,
+    // avatar_decoration_data: Option<String>,
+    // banner: Option<String>,
+    // banner_color: Option<String>,
+    // bio: String,
+    // clan: Option<String>,
+    // discriminator: String,
+    // email: String,
+    // flags: i32,
+    // global_name: String,
     id: String,
-    linked_users: Vec<String>,
-    locale: String,
-    mfa_enabled: bool,
-    nsfw_allowed: bool,
-    phone: Option<String>,
-    premium_type: i32,
-    public_flags: i32,
+    // linked_users: Vec<String>,
+    // locale: String,
+    // mfa_enabled: bool,
+    // nsfw_allowed: bool,
+    // phone: Option<String>,
+    // premium_type: i32,
+    // public_flags: i32,
     username: String,
-    verified: bool,
+    // verified: bool,
 }
-impl Into<GlobalUser> for Profile {
-    fn into(self) -> GlobalUser {
+impl From<Profile> for GlobalUser {
+    fn from(val: Profile) -> Self {
         GlobalUser {
-            id: self.id,
-            username: self.username,
+            id: val.id,
+            username: val.username,
         }
     }
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct User {
-    avatar: Option<String>,
-    avatar_decoration_data: Option<String>,
-    clan: Option<String>,
-    discriminator: String,
+    // avatar: Option<String>,
+    // avatar_decoration_data: Option<String>,
+    // clan: Option<String>,
+    // discriminator: String,
     id: String,
     username: String,
+}
+
+impl From<&User> for GlobalUser {
+    fn from(val: &User) -> Self {
+        GlobalUser {
+            id: val.id.clone(),
+            username: val.username.clone(),
+        }
+    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Friend {
     id: String,
-    is_spam_request: bool,
-    nickname: Option<String>,
-    since: String,
+    // is_spam_request: bool,
+    // nickname: Option<String>,
+    // since: String,
     // type: i32,
     user: User,
 }
-impl Into<GlobalUser> for Friend {
-    fn into(self) -> GlobalUser {
+impl From<Friend> for GlobalUser {
+    fn from(val: Friend) -> Self {
         GlobalUser {
-            id: self.id,
-            username: self.user.username,
+            id: val.id.clone(),
+            username: val.user.username.clone(),
         }
     }
 }
 #[derive(Deserialize, Debug, Clone)]
 pub struct Recipient {
-    pub(crate) avatar: Option<String>,
-    avatar_decoration_data: Option<String>,
-    clan: Option<String>,
-    discriminator: String,
-    global_name: Option<String>,
-    pub(crate) id: String,
-    public_flags: i32,
+    // avatar: Option<String>,
+    // avatar_decoration_data: Option<String>,
+    // clan: Option<String>,
+    // discriminator: String,
+    // global_name: Option<String>,
+    // id: String,
+    // public_flags: i32,
     username: String,
 }
 
@@ -99,78 +109,86 @@ pub enum ChannelTypes {
 #[derive(Deserialize, Debug, Clone)]
 pub struct Channel {
     pub(crate) id: String,
-    #[serde(rename = "type")]
-    channel_type: ChannelTypes,
-    flags: i32,
-    pub(crate) icon: Option<String>,
-    last_message_id: Option<String>,
+    // #[serde(rename = "type")]
+    // channel_type: ChannelTypes,
+    // flags: i32,
+    icon: Option<String>,
+    pub last_message_id: Option<String>,
     name: Option<String>,
-    pub(crate) recipients: Vec<Recipient>,
+    recipients: Vec<Recipient>,
 }
-impl Into<Conversation> for Channel {
-    fn into(self) -> Conversation {
-        Conversation {
-            id: self.id,
-            name: self.name.unwrap_or(match self.recipients.get(0) {
+impl From<&Channel> for MsgsStore {
+    fn from(val: &Channel) -> Self {
+        MsgsStore {
+            // hash: None,
+            id: val.id.clone(),
+            name: val.clone().name.unwrap_or(match val.recipients.get(0) {
                 Some(test) => test.username.clone(),
                 None => "Fix later".to_string(),
             }),
-            icon: match self.channel_type {
-                ChannelTypes::DM => self.recipients.get(0).and_then(|r| r.avatar.clone()),
-                ChannelTypes::GroupDM => self.icon,
-                _ => None,
-            }
+            icon: None,
         }
     }
 }
 
 #[derive(Deserialize, Debug)]
 pub struct CountDetails {
-    burst: u32,
-    normal: u32,
+    // burst: u32,
+    // normal: u32,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Emoji {
-    id: Option<String>,
-    name: String,
+    // id: Option<String>,
+    // name: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Reaction {
-    burst_colors: Vec<String>,
-    burst_count: u32,
-    burst_me: bool,
-    count: u32,
-    count_details: CountDetails,
-    emoji: Emoji,
-    me: bool,
-    me_burst: bool,
+    // burst_colors: Vec<String>,
+    // burst_count: u32,
+    // burst_me: bool,
+    // count: u32,
+    // count_details: CountDetails,
+    // emoji: Emoji,
+    // me: bool,
+    // me_burst: bool,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Message {
-    attachments: Vec<String>,
+    // attachments: Vec<String>,
     author: User,
-    channel_id: String,
-    components: Vec<String>,
+    // channel_id: String,
+    // components: Vec<String>,
     content: String,
-    edited_timestamp: Option<String>,
-    embeds: Vec<u32>,
-    flags: u32,
+    // edited_timestamp: Option<String>,
+    // embeds: Vec<u32>,
+    // flags: u32,
     id: String,
-    mention_everyone: bool,
+    // mention_everyone: bool,
     // mention_roles: Vec<String>,
     // mentions: Vec<String>,
-    pinned: bool,
-    reactions: Option<Vec<Reaction>>,
-    timestamp: String,
-    tts: bool,
+    // pinned: bool,
+    // reactions: Option<Vec<Reaction>>,
+    // timestamp: String,
+    // tts: bool,
     // type: u32,
 }
+
+impl From<&Message> for GlobalMessage {
+    fn from(value: &Message) -> Self {
+        Self {
+            id: value.id.clone(),
+            sender: (&value.author).into(),
+            text: value.content.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Guild {
-    pub id: String,
+    pub id: String, // Snowflake (usually a string for large numbers)
     pub name: String,
     pub icon: Option<String>,
     // pub icon_hash: Option<String>,
@@ -216,12 +234,13 @@ pub struct Guild {
     // pub incidents_data: Option<IncidentsData>,
 }
 
-impl Into<GlobalGuild> for Guild {
-    fn into(self) -> GlobalGuild {
-        GlobalGuild {
-            id: self.id,
-            name: self.name,
-            icon: self.icon,
+impl Into<MsgsStore> for &Guild {
+    fn into(self) -> MsgsStore {
+        MsgsStore {
+            // hash: None,
+            id: self.id.clone(),
+            name: self.name.clone(),
+            icon: None,
         }
     }
 }
