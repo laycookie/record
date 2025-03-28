@@ -36,9 +36,9 @@ pub async fn cache_download(
     file_name: impl Into<String>,
 ) -> Result<PathBuf, Box<dyn Error>> {
     let file_path = path.join(file_name.into());
-    // if file_path.exists() {
-    //     return Ok(file_path);
-    // };
+    if file_path.exists() {
+        return Ok(file_path);
+    };
 
     let url = url.into();
     let req = surf::get(&url);
