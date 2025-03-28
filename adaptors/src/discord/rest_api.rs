@@ -45,6 +45,7 @@ impl MessangerQuery for Discord {
         )
             .await?;
 
+        
         let conversations = channels
             .iter()
             .map(|channel| channel.into())
