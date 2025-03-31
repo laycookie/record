@@ -4,10 +4,10 @@ use crate::AuthStore;
 
 use super::{MyAppMessage, Page};
 use adaptors::types::{MsgsStore, User};
-use futures::try_join;
+use futures::{future::try_join_all, try_join};
 use iced::{
     widget::{column, image, row, Button, Column, Text, TextInput},
-    ContentFit, Length,
+    ContentFit, Length, Task,
 };
 use smol::LocalExecutor;
 
@@ -28,20 +28,20 @@ impl Into<MyAppMessage> for Message {
 pub struct MessangerWindow {
     auth_store: *mut AuthStore,
     main: Main,
-    client_profile: User,
-    conversation_center: ConversationData,
+    messangers_data: Vec<MsngrData>,
+}
+
+struct MsngrData {
+    profile: User,
+    contacts: Vec<User>,
+    conversations: Vec<MsgsStore>,
+    guilds: Vec<MsgsStore>,
+    chat: HashMap<String, String>,
 }
 
 enum Main {
     Contacts,
     Chat(String),
-}
-
-struct ConversationData {
-    contacts: Vec<User>,
-    conversations: Vec<MsgsStore>,
-    guilds: Vec<MsgsStore>,
-    chat: HashMap<String, String>,
 }
 
 impl MessangerWindow {
@@ -50,25 +50,31 @@ impl MessangerWindow {
 
         smol::block_on(ex.run(async {
             let messangers = auth_store.get_messangers();
-            let q = messangers[0].auth.query().unwrap();
 
-            let (profile, conversations, contacts, guilds) = try_join!(
-                q.get_profile(),
-                q.get_conversation(),
-                q.get_contacts(),
-                q.get_guilds()
-            )?;
+            let msngrs = try_join_all(auth_store.get_messangers().iter().map(async move |m| {
+                let q = m.auth.query().unwrap();
+                try_join!(
+                    q.get_profile(),
+                    q.get_conversation(),
+                    q.get_contacts(),
+                    q.get_guilds(),
+                )
+            }))
+            .await?
+            .into_iter()
+            .map(|(profile, conversations, contacts, guilds)| MsngrData {
+                profile,
+                contacts,
+                conversations,
+                guilds,
+                chat: HashMap::new(),
+            })
+            .collect::<Vec<_>>();
 
             let window = MessangerWindow {
                 auth_store,
-                client_profile: profile,
-                conversation_center: ConversationData {
-                    guilds,
-                    conversations,
-                    contacts,
-                    chat: HashMap::new(),
-                },
                 main: Main::Contacts,
+                messangers_data: msngrs,
             };
 
             Ok(window)
@@ -102,18 +108,14 @@ impl Page for MessangerWindow {
     }
 
     fn view(&self) -> iced::Element<super::MyAppMessage> {
-        let options = row![Text::new(&self.client_profile.username)];
+        let options = row![Text::new(&self.messangers_data[0].profile.username)];
 
-        let navbar = self
-            .conversation_center
+        let navbar = self.messangers_data[0]
             .guilds
             .iter()
             .map(|i| {
                 let image = match &i.icon {
-                    Some(icon) => {
-                        println!("{:?}", icon);
-                        image(icon)
-                    }
+                    Some(icon) => image(icon),
                     None => image("./public/imgs/placeholder.jpg"),
                 };
                 Button::new(
@@ -127,7 +129,7 @@ impl Page for MessangerWindow {
 
         let sidebar = column![
             Button::new("Contacts").on_press(MyAppMessage::Chat(Message::OpenContacts)),
-            self.conversation_center
+            self.messangers_data[0]
                 .conversations
                 .iter()
                 .map(|i| {
@@ -143,7 +145,7 @@ impl Page for MessangerWindow {
                 let widget = Column::new();
                 let widget = widget.push(TextInput::new("Search", ""));
                 widget.push(
-                    self.conversation_center
+                    self.messangers_data[0]
                         .contacts
                         .iter()
                         .map(|i| Text::from(i.username.as_str()))
@@ -152,7 +154,7 @@ impl Page for MessangerWindow {
             }
             Main::Chat(id) => {
                 let widget = Column::new();
-                let chat = self.conversation_center.chat.get(id);
+                let chat = self.messangers_data[0].chat.get(id);
                 let t = match chat {
                     Some(text) => text.as_str(),
                     None => "test",
@@ -163,5 +165,12 @@ impl Page for MessangerWindow {
         };
 
         column![options, row![navbar, sidebar, main]].into()
+    }
+}
+
+fn update(state: &mut MessangerWindow, message: Message) -> Task<Message> {
+    match message {
+        Message::OpenContacts => todo!(),
+        Message::OpenConversation(msgs_store) => todo!(),
     }
 }

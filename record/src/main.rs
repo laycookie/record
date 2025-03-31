@@ -5,16 +5,17 @@ use pages::{chat::MessangerWindow, Login, MyAppMessage, Page};
 mod auth;
 mod pages;
 
-// const ICON_FONT: Font = Font::with_name("icons");
-
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting");
     iced::daemon(App::title(), App::update, App::view)
-        .run_with(|| App::new())
+        .run_with(|| {
+            let app = App::default();
+            let (_window_id, window_task) = window::open(window::Settings::default());
+
+            (app, window_task.then(|_| Task::none()))
+        })
         .inspect_err(|err| println!("{}", err))?;
 
-    // iced::application(App::title(), App::update, App::view).run();
-    // .font(include_bytes!("../fonts/icons.ttf").as_slice())
     Ok(())
 }
 
@@ -24,7 +25,7 @@ struct App {
 }
 impl Default for App {
     fn default() -> Self {
-        let mut auth_store = Box::new(AuthStore::new("./public/LoginInfo".into()));
+        let mut auth_store = Box::new(AuthStore::new("./LoginInfo".into()));
 
         let memoryless_page: Box<dyn Page>;
         if auth_store.is_empty() {
@@ -41,19 +42,6 @@ impl Default for App {
     }
 }
 impl App {
-    fn new() -> (Self, Task<MyAppMessage>) {
-        // Init app
-        let app = Self::default();
-
-        // Open a window
-        let (_window_id, window_task) = window::open(window::Settings {
-            ..Default::default()
-        });
-
-        let task = window_task.then(|_| Task::none());
-
-        (app, task)
-    }
     fn title() -> &'static str {
         "record"
     }
@@ -66,8 +54,4 @@ impl App {
     fn view(&self, _window: window::Id) -> Element<MyAppMessage> {
         self.memoryless_page.view()
     }
-    // fn view(&self) -> Element<MyAppMessage> {
-    //     // self.memoryless_page.view()
-    //     Column::new().into()
-    // }
 }

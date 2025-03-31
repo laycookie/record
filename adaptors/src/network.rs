@@ -43,14 +43,14 @@ pub async fn cache_download(
     let url = url.into();
     let req = surf::get(&url);
     let mut res = req.send().await?;
-    
+
     let StatusCode::Ok = res.status() else {
         return Err(format!("Failed to download file. Status: {}", res.status()).into());
     };
 
     // Create a file at the specified path
-    match fs::create_dir_all(path.clone()) {
-        Ok(_) => println!("Directory created successfully."),
+    match fs::create_dir_all(&path) {
+        Ok(_) => println!("Directory created successfully: {:?}", path),
         Err(e) => eprintln!("Failed to create directory: {}", e),
     }
 
