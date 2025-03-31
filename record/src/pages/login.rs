@@ -87,12 +87,13 @@ impl Page for Login {
                     let auth = self.selected_platform.to_messanger(self.token.clone());
 
                     // Fetch data from auth
-                    let auths = self.get_mut_auth();
-                    let chat = MessangerWindow::new(auths).unwrap();
+                    let auth_store = self.get_mut_auth();
+                    auth_store.add_auth(auth);
+                    let chat = MessangerWindow::new(auth_store).unwrap();
 
                     // Store data in auth_store
                     let auth_store = self.get_mut_auth();
-                    auth_store.add_auth(auth);
+                    auth_store.save_to_disk();
 
                     // Pass fetched data into Chat
 

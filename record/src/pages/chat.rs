@@ -7,7 +7,7 @@ use adaptors::types::{MsgsStore, User};
 use futures::{future::try_join_all, try_join};
 use iced::{
     widget::{column, image, row, Button, Column, Text, TextInput},
-    ContentFit, Length, Task,
+    ContentFit, Length,
 };
 use smol::LocalExecutor;
 
@@ -49,8 +49,6 @@ impl MessangerWindow {
         let ex = LocalExecutor::new();
 
         smol::block_on(ex.run(async {
-            let messangers = auth_store.get_messangers();
-
             let msngrs = try_join_all(auth_store.get_messangers().iter().map(async move |m| {
                 let q = m.auth.query().unwrap();
                 try_join!(
@@ -165,12 +163,5 @@ impl Page for MessangerWindow {
         };
 
         column![options, row![navbar, sidebar, main]].into()
-    }
-}
-
-fn update(state: &mut MessangerWindow, message: Message) -> Task<Message> {
-    match message {
-        Message::OpenContacts => todo!(),
-        Message::OpenConversation(msgs_store) => todo!(),
     }
 }

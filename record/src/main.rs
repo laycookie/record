@@ -20,7 +20,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct App {
-    auth: Box<AuthStore>,
+    _auth: Box<AuthStore>, // TODO: Change the strategy of working with auth
     memoryless_page: Box<dyn Page>,
 }
 impl Default for App {
@@ -37,7 +37,7 @@ impl Default for App {
 
         Self {
             memoryless_page,
-            auth: auth_store,
+            _auth: auth_store,
         }
     }
 }

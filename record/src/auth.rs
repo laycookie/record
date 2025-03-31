@@ -11,7 +11,7 @@ use crate::pages::login::Platform;
 // TODO: Check why this req. pub
 pub(crate) struct Messanger {
     pub(crate) auth: Box<dyn Auth>,
-    on_disk: bool,
+    save_to_disk: bool,
 }
 
 // TODO Switch this to an async closures when we will update
@@ -50,7 +50,7 @@ impl<'a> AuthStore {
 
             messangers.push(Messanger {
                 auth,
-                on_disk: false,
+                save_to_disk: true,
             });
         }
         AuthStore {
@@ -60,7 +60,7 @@ impl<'a> AuthStore {
         }
     }
 
-    fn save_on_disk(&mut self) {
+    fn sync_disk(&mut self) {
         // Preferably I should just be writing to a new file, and then
         // just swap the files when I'm finished writing, but realistically
         // there is no point in this type of redundancy at this point in the
@@ -68,7 +68,7 @@ impl<'a> AuthStore {
         self.file.seek(SeekFrom::Start(0)).unwrap();
         self.file.set_len(0).unwrap();
         self.messangers.iter_mut().for_each(|messangers| {
-            if messangers.on_disk == false {
+            if messangers.save_to_disk == false {
                 return;
             }
 
@@ -111,13 +111,23 @@ impl<'a> AuthStore {
         if !self.contains_auth(&auth) {
             self.messangers.push(Messanger {
                 auth,
-                on_disk: true,
+                save_to_disk: false,
             });
-            self.save_on_disk();
             // self.dispatch_callbacks();
             return true;
         }
         false
+    }
+
+    /// Saves everything to disk
+    pub fn save_to_disk(&mut self) {
+        for m in &mut self.messangers {
+            if m.save_to_disk == false {
+                m.save_to_disk = true;
+            }
+            println!("{:#?}", m.save_to_disk);
+        }
+        self.sync_disk();
     }
 
     // pub fn retain<F>(&mut self, f: F)
