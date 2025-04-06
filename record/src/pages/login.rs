@@ -1,14 +1,15 @@
 use adaptors::{discord::Discord, Messanger};
 use iced::{
     widget::{column, combo_box::State, Button, Column, ComboBox, Container, TextInput},
-    Alignment, Element,
+    Alignment, Element, Task,
 };
-use std::fmt::Display;
+use smol::lock::RwLock;
+use std::{error, fmt::Display, sync::Arc};
 use strum::EnumString;
 
 use crate::auth::AuthStore;
 
-use super::{chat::MessangerWindow, MyAppMessage, Page};
+use super::{chat::MessangerWindow, MyAppMessage, Page, UpdateResult};
 
 // TODO: Make adapters handle the functionality of this enum
 #[derive(Debug, Clone, EnumString)]
@@ -50,16 +51,24 @@ pub enum Message {
     PlatformInput(Platform),
     TokenInput(String),
     SubmitToken,
+    AuthFromToken(Result<MessangerWindow, Arc<dyn error::Error + Send + Sync>>),
 }
+// TODO: Automate
+impl Into<MyAppMessage> for Message {
+    fn into(self) -> MyAppMessage {
+        MyAppMessage::Login(self)
+    }
+}
+//
 
 pub struct Login {
-    auth: *mut AuthStore,
+    auth: Arc<RwLock<AuthStore>>,
     platform: State<Platform>,
     selected_platform: Platform,
     token: String,
 }
 impl Login {
-    pub fn new(auth: &mut AuthStore) -> Self {
+    pub fn new(auth: Arc<RwLock<AuthStore>>) -> Self {
         // TODO: Automate addition of new enum varients in here
         let service = State::new(vec![Platform::Discord, Platform::Test]);
         Self {
@@ -69,12 +78,9 @@ impl Login {
             token: String::new(),
         }
     }
-    fn get_mut_auth(&self) -> &mut AuthStore {
-        unsafe { &mut *self.auth }
-    }
 }
 impl Page for Login {
-    fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
+    fn update(&mut self, message: MyAppMessage) -> UpdateResult<MyAppMessage> {
         if let MyAppMessage::Login(message) = message {
             match message {
                 Message::PlatformInput(platform) => {
@@ -83,27 +89,30 @@ impl Page for Login {
                 }
                 Message::TokenInput(change) => self.token = change,
                 Message::SubmitToken => {
-                    // Init auth
+                    // TODO: Disable submit button until the operation ether
                     let auth = self.selected_platform.to_messanger(self.token.clone());
 
-                    // Fetch data from auth
-                    let auth_store = self.get_mut_auth();
-                    auth_store.add_auth(auth);
-                    let chat = MessangerWindow::new(auth_store).unwrap();
+                    smol::block_on(async {
+                        self.auth.write().await.add_auth(auth.into());
+                    });
 
-                    // Store data in auth_store
-                    let auth_store = self.get_mut_auth();
-                    auth_store.save_to_disk();
-
-                    // Pass fetched data into Chat
-
-                    return Some(Box::new(chat));
-                    // ===
+                    // return UpdateResult::None;
+                    return UpdateResult::Task(Task::perform(
+                        MessangerWindow::new(self.auth.clone()),
+                        |r| MyAppMessage::Login(Message::AuthFromToken(r)),
+                    ));
+                }
+                Message::AuthFromToken(res) => {
+                    let chat = res.unwrap();
+                    smol::block_on(async {
+                        self.auth.write().await.save_to_disk();
+                    });
+                    return UpdateResult::Page(Box::new(chat));
                 }
             }
         }
 
-        None
+        UpdateResult::None
     }
 
     fn view(&self) -> Element<MyAppMessage> {

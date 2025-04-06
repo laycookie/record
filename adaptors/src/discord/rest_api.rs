@@ -19,9 +19,9 @@ impl Discord {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl MessangerQuery for Discord {
-    async fn get_profile(&self) -> Result<User, Box<dyn Error>> {
+    async fn get_profile(&self) -> Result<User, Box<dyn Error + Sync + Send>> {
         let profile = http_request::<Profile>(
             surf::get("https://discord.com/api/v9/users/@me"),
             self.get_auth_header(),
@@ -30,7 +30,7 @@ impl MessangerQuery for Discord {
 
         Ok(profile.into())
     }
-    async fn get_contacts(&self) -> Result<Vec<User>, Box<dyn Error>> {
+    async fn get_contacts(&self) -> Result<Vec<User>, Box<dyn Error + Sync + Send>> {
         let friends = http_request::<Vec<Friend>>(
             surf::get("https://discord.com/api/v9/users/@me/relationships"),
             self.get_auth_header(),
@@ -38,24 +38,24 @@ impl MessangerQuery for Discord {
         .await?;
         Ok(friends.iter().map(|friend| friend.clone().into()).collect())
     }
-    async fn get_conversation(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>> {
+    async fn get_conversation(&self) -> Result<Vec<MsgsStore>, Box<dyn Error + Sync + Send>> {
         let channels = http_request::<Vec<Channel>>(
             surf::get("https://discord.com/api/v10/users/@me/channels"),
             self.get_auth_header(),
         )
-            .await?;
+        .await?;
 
-        
         let conversations = channels
             .iter()
             .map(|channel| channel.into())
             .collect::<Vec<_>>();
 
-        self.dms.set(channels);
+        *self.dms.write().unwrap() = channels;
+        // self.dms.set(channels);
 
         Ok(conversations)
     }
-    async fn get_guilds(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>> {
+    async fn get_guilds(&self) -> Result<Vec<MsgsStore>, Box<dyn Error + Sync + Send>> {
         let guilds = http_request::<Vec<Guild>>(
             surf::get("https://discord.com/api/v10/users/@me/guilds"),
             self.get_auth_header(),
@@ -100,13 +100,13 @@ impl MessangerQuery for Discord {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl ParameterizedMessangerQuery for Discord {
     async fn get_messanges(
         &self,
         msgs_location: MsgsStore,
         load_from_msg: Option<GlobalMessage>,
-    ) -> Result<Vec<GlobalMessage>, Box<dyn Error>> {
+    ) -> Result<Vec<GlobalMessage>, Box<dyn Error + Sync + Send>> {
         let before = match load_from_msg {
             Some(msg) => format!("?{}", msg.id),
             None => "".to_string(),

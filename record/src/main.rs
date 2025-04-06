@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use auth::AuthStore;
 use iced::{window, Element, Task};
 use pages::{chat::MessangerWindow, Login, MyAppMessage, Page};
+use smol::lock::RwLock;
 
 mod auth;
 mod pages;
@@ -20,25 +23,24 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct App {
-    _auth: Box<AuthStore>, // TODO: Change the strategy of working with auth
     memoryless_page: Box<dyn Page>,
 }
 impl Default for App {
     fn default() -> Self {
-        let mut auth_store = Box::new(AuthStore::new("./LoginInfo".into()));
+        let auth_store = AuthStore::new("./LoginInfo".into());
+        let is_store_empty = auth_store.is_empty();
+        let auth_store = Arc::new(RwLock::new(auth_store));
 
         let memoryless_page: Box<dyn Page>;
-        if auth_store.is_empty() {
-            memoryless_page = Box::new(Login::new(&mut auth_store));
+        if is_store_empty {
+            memoryless_page = Box::new(Login::new(auth_store.clone()));
         } else {
-            let m = MessangerWindow::new(&mut auth_store).unwrap();
+            let m =
+                smol::block_on(async { MessangerWindow::new(auth_store.clone()).await.unwrap() });
             memoryless_page = Box::new(m);
         }
 
-        Self {
-            memoryless_page,
-            _auth: auth_store,
-        }
+        Self { memoryless_page }
     }
 }
 impl App {
@@ -46,10 +48,20 @@ impl App {
         "record"
     }
     fn update(&mut self, message: MyAppMessage) -> impl Into<Task<MyAppMessage>> {
-        let page = self.memoryless_page.update(message);
-        if let Some(p) = page {
-            self.memoryless_page = p;
+        match self.memoryless_page.update(message) {
+            pages::UpdateResult::Page(page) => {
+                self.memoryless_page = page;
+                Task::none()
+            }
+            pages::UpdateResult::Task(task) => task,
+            pages::UpdateResult::None => Task::none(),
         }
+        // let result = self.memoryless_page.update(message);
+        // if let Some(p) = page {
+        //     self.memoryless_page = p;
+        // }
+
+        // task
     }
     fn view(&self, _window: window::Id) -> Element<MyAppMessage> {
         self.memoryless_page.view()

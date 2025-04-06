@@ -7,7 +7,7 @@ pub mod discord;
 mod network;
 pub mod types;
 
-pub trait Messanger {
+pub trait Messanger: Send + Sync {
     // ID & Auth
     fn name(&self) -> String;
     fn auth(&self) -> String;
@@ -27,19 +27,19 @@ impl PartialEq for dyn Messanger {
 
 // TODO: Remove the async trait when we will be able to create safe objects out
 // of traits with async functions
-#[async_trait(?Send)]
+#[async_trait]
 pub trait MessangerQuery {
-    async fn get_profile(&self) -> Result<User, Box<dyn Error>>; // Fetch client profile
-    async fn get_contacts(&self) -> Result<Vec<User>, Box<dyn Error>>; // Users from friend list etc
-    async fn get_conversation(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>>; // List of DMs
-    async fn get_guilds(&self) -> Result<Vec<MsgsStore>, Box<dyn Error>>; // Large groups that can have over a 100 people in them.
+    async fn get_profile(&self) -> Result<User, Box<dyn Error + Sync + Send>>; // Fetch client profile
+    async fn get_contacts(&self) -> Result<Vec<User>, Box<dyn Error + Sync + Send>>; // Users from friend list etc
+    async fn get_conversation(&self) -> Result<Vec<MsgsStore>, Box<dyn Error + Sync + Send>>; // List of DMs
+    async fn get_guilds(&self) -> Result<Vec<MsgsStore>, Box<dyn Error + Sync + Send>>; // Large groups that can have over a 100 people in them.
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 pub trait ParameterizedMessangerQuery {
     async fn get_messanges(
         &self,
         msgs_location: MsgsStore,
         load_from_msg: Option<Message>,
-    ) -> Result<Vec<Message>, Box<dyn Error>>;
+    ) -> Result<Vec<Message>, Box<dyn Error + Sync + Send>>;
 }

@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::sync::RwLock;
 
 use crate::{Messanger, MessangerQuery, ParameterizedMessangerQuery};
 
@@ -8,14 +8,14 @@ pub mod rest_api;
 pub struct Discord {
     token: String, // TODO: Make it secure
     // Data
-    dms: Cell<Vec<json_structs::Channel>>,
+    dms: RwLock<Vec<json_structs::Channel>>,
 }
 
 impl Discord {
     pub fn new(token: &str) -> Discord {
         Discord {
             token: token.into(),
-            dms: Cell::new(Vec::new()),
+            dms: RwLock::new(Vec::new()),
         }
     }
 }

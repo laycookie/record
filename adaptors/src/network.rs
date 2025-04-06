@@ -11,7 +11,7 @@ use surf::{RequestBuilder, StatusCode};
 pub async fn http_request<T: DeserializeOwned>(
     mut req: RequestBuilder,
     headers: Vec<(&str, String)>,
-) -> Result<T, Box<dyn Error>> {
+) -> Result<T, Box<dyn Error + Sync + Send>> {
     for (key, value) in headers {
         req = req.header(key, value);
     }

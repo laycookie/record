@@ -1,15 +1,15 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, fmt::Debug, sync::Arc};
 
 use crate::AuthStore;
 
-use super::{MyAppMessage, Page};
+use super::{MyAppMessage, Page, UpdateResult};
 use adaptors::types::{MsgsStore, User};
 use futures::{future::try_join_all, try_join};
 use iced::{
     widget::{column, image, row, Button, Column, Text, TextInput},
     ContentFit, Length,
 };
-use smol::LocalExecutor;
+use smol::lock::RwLock;
 
 #[derive(Debug, Clone)]
 pub enum Message {
@@ -25,12 +25,23 @@ impl Into<MyAppMessage> for Message {
 }
 //
 
+#[derive(Clone)]
 pub struct MessangerWindow {
-    auth_store: *mut AuthStore,
+    auth_store: Arc<RwLock<AuthStore>>,
     main: Main,
     messangers_data: Vec<MsngrData>,
 }
+impl Debug for MessangerWindow {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MessangerWindow")
+            .field("auth_store", &"TODO: Find a way to print this")
+            .field("main", &self.main)
+            .field("messangers_data", &self.messangers_data)
+            .finish()
+    }
+}
 
+#[derive(Debug, Clone)]
 struct MsngrData {
     profile: User,
     contacts: Vec<User>,
@@ -39,25 +50,30 @@ struct MsngrData {
     chat: HashMap<String, String>,
 }
 
+#[derive(Debug, Clone)]
 enum Main {
     Contacts,
     Chat(String),
 }
 
 impl MessangerWindow {
-    pub fn new(auth_store: &mut AuthStore) -> Result<Self, Box<dyn Error>> {
-        let ex = LocalExecutor::new();
+    pub async fn new(
+        auth_store: Arc<RwLock<AuthStore>>,
+    ) -> Result<Self, Arc<dyn Error + Sync + Send>> {
+        let store = auth_store.read().await;
+        let m = store.get_messangers();
 
-        smol::block_on(ex.run(async {
-            let msngrs = try_join_all(auth_store.get_messangers().iter().map(async move |m| {
-                let q = m.auth.query().unwrap();
-                try_join!(
-                    q.get_profile(),
-                    q.get_conversation(),
-                    q.get_contacts(),
-                    q.get_guilds(),
-                )
-            }))
+        let reqs = m.iter().map(async move |m| {
+            let q = m.auth.query().unwrap();
+            try_join!(
+                q.get_profile(),
+                q.get_conversation(),
+                q.get_contacts(),
+                q.get_guilds(),
+            )
+        });
+
+        let msngrs = try_join_all(reqs)
             .await?
             .into_iter()
             .map(|(profile, conversations, contacts, guilds)| MsngrData {
@@ -69,29 +85,28 @@ impl MessangerWindow {
             })
             .collect::<Vec<_>>();
 
-            let window = MessangerWindow {
-                auth_store,
-                main: Main::Contacts,
-                messangers_data: msngrs,
-            };
+        drop(store);
 
-            Ok(window)
-        }))
-    }
-    fn get_auth_store(&self) -> &AuthStore {
-        unsafe { &*self.auth_store }
+        let window = MessangerWindow {
+            auth_store,
+            main: Main::Contacts,
+            messangers_data: msngrs,
+        };
+
+        Ok(window)
     }
 }
 
 impl Page for MessangerWindow {
-    fn update(&mut self, message: MyAppMessage) -> Option<Box<dyn Page>> {
+    fn update(&mut self, message: MyAppMessage) -> UpdateResult<MyAppMessage> {
         if let MyAppMessage::Chat(message) = message {
             match message {
                 Message::OpenConversation(msgs_store) => {
-                    let a = &self.get_auth_store().get_messangers()[0].auth;
-                    let pq = a.param_query().unwrap();
-
                     smol::block_on(async {
+                        let auths = self.auth_store.read().await;
+                        let a = &auths.get_messangers()[0].auth;
+                        let pq = a.param_query().unwrap();
+
                         let mess = pq.get_messanges(msgs_store, None).await;
                         println!("{:#?}", mess);
                     });
@@ -102,7 +117,7 @@ impl Page for MessangerWindow {
             }
         }
 
-        None
+        UpdateResult::None
     }
 
     fn view(&self) -> iced::Element<super::MyAppMessage> {
