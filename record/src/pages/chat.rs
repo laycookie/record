@@ -6,8 +6,12 @@ use super::{MyAppMessage, Page, UpdateResult};
 use adaptors::types::{MsgsStore, User};
 use futures::{future::try_join_all, try_join};
 use iced::{
-    widget::{column, image, row, Button, Column, Text, TextInput},
-    ContentFit, Length,
+    widget::{
+        column, container, image, row,
+        scrollable::{Direction, Scrollbar},
+        Button, Column, Scrollable, Text, TextInput,
+    },
+    Alignment, ContentFit, Length,
 };
 use smol::lock::RwLock;
 
@@ -120,38 +124,55 @@ impl Page for MessangerWindow {
         UpdateResult::None
     }
 
-    fn view(&self) -> iced::Element<super::MyAppMessage> {
+    fn view(&self) -> iced::Element<MyAppMessage> {
         let options = row![Text::new(&self.messangers_data[0].profile.username)];
 
-        let navbar = self.messangers_data[0]
-            .guilds
-            .iter()
-            .map(|i| {
-                let image = match &i.icon {
-                    Some(icon) => image(icon),
-                    None => image("./public/imgs/placeholder.jpg"),
-                };
-                Button::new(
-                    image
-                        .height(Length::Fixed(48.0))
-                        .width(Length::Fixed(48.0))
-                        .content_fit(ContentFit::Cover),
-                )
-            })
-            .fold(Column::new(), |column, widget| column.push(widget));
-
-        let sidebar = column![
-            Button::new("Contacts").on_press(MyAppMessage::Chat(Message::OpenContacts)),
+        let navbar = Scrollable::new(
             self.messangers_data[0]
-                .conversations
+                .guilds
                 .iter()
                 .map(|i| {
-                    Button::new(i.name.as_str())
-                        .on_press(Message::OpenConversation(i.to_owned()).into())
+                    let image = match &i.icon {
+                        Some(icon) => image(icon),
+                        None => image("./public/imgs/placeholder.jpg"),
+                    };
+                    Button::new(
+                        image
+                            .height(Length::Fixed(48.0))
+                            .width(Length::Fixed(48.0))
+                            .content_fit(ContentFit::Cover),
+                    )
                 })
-                .fold(Column::new(), |column, widget| column.push(widget))
-                .height(Length::Fill)
-        ];
+                .fold(Column::new(), |column, widget| column.push(widget)),
+        )
+        .direction(Direction::Vertical(
+            Scrollbar::default().width(0).scroller_width(0),
+        ));
+
+        let sidebar = Scrollable::new(
+            column![
+                Button::new(
+                    container("Contacts")
+                        .width(Length::Fill)
+                        .align_x(Alignment::Center)
+                )
+                .on_press(MyAppMessage::Chat(Message::OpenContacts))
+                .width(Length::Fill),
+                self.messangers_data[0]
+                    .conversations
+                    .iter()
+                    .map(|i| {
+                        Button::new(i.name.as_str())
+                            .width(Length::Fill)
+                            .on_press(Message::OpenConversation(i.to_owned()).into())
+                    })
+                    .fold(Column::new(), |column, widget| column.push(widget))
+            ]
+            .width(168),
+        )
+        .direction(Direction::Vertical(
+            Scrollbar::default().width(7).scroller_width(7),
+        ));
 
         let main = match &self.main {
             Main::Contacts => {
