@@ -5,11 +5,12 @@ use crate::AuthStore;
 use super::{MyAppMessage, Page, UpdateResult};
 use adaptors::types::{MsgsStore, User};
 use futures::{future::try_join_all, try_join};
-use iced::widget::scrollable::{Direction, Scrollbar};
-use iced::widget::{container, scrollable};
 use iced::{
-    alignment,
-    widget::{column, image, row, Button, Column, Text, TextInput},
+    widget::{
+        column, container, image, row,
+        scrollable::{Direction, Scrollbar},
+        Button, Column, Scrollable, Text, TextInput,
+    },
     Alignment, ContentFit, Length,
 };
 use smol::lock::RwLock;
@@ -126,7 +127,7 @@ impl Page for MessangerWindow {
     fn view(&self) -> iced::Element<MyAppMessage> {
         let options = row![Text::new(&self.messangers_data[0].profile.username)];
 
-        let navbar = scrollable(
+        let navbar = Scrollable::new(
             self.messangers_data[0]
                 .guilds
                 .iter()
@@ -148,7 +149,7 @@ impl Page for MessangerWindow {
             Scrollbar::default().width(0).scroller_width(0),
         ));
 
-        let sidebar = scrollable(
+        let sidebar = Scrollable::new(
             column![
                 Button::new(
                     container("Contacts")
