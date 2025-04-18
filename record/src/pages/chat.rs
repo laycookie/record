@@ -3,7 +3,7 @@ use std::{collections::HashMap, error::Error, fmt::Debug, sync::Arc};
 use crate::AuthStore;
 
 use super::{MyAppMessage, Page, UpdateResult};
-use adaptors::types::{MsgsStore, User};
+use adaptors::types::{Message as ChatMessage, MsgsStore, User};
 use futures::{future::try_join_all, try_join};
 use iced::{
     widget::{
@@ -28,7 +28,6 @@ impl Into<MyAppMessage> for Message {
     }
 }
 //
-
 #[derive(Clone)]
 pub struct MessangerWindow {
     auth_store: Arc<RwLock<AuthStore>>,
@@ -57,7 +56,7 @@ struct MsngrData {
 #[derive(Debug, Clone)]
 enum Main {
     Contacts,
-    Chat(String),
+    Chat { messages: Vec<ChatMessage> },
 }
 
 impl MessangerWindow {
@@ -111,11 +110,9 @@ impl Page for MessangerWindow {
                         let a = &auths.get_messangers()[0].auth;
                         let pq = a.param_query().unwrap();
 
-                        let mess = pq.get_messanges(msgs_store, None).await;
-                        println!("{:#?}", mess);
+                        let mess = pq.get_messanges(msgs_store, None).await.unwrap();
+                        self.main = Main::Chat { messages: mess };
                     });
-
-                    // self.main = Main::Chat(conversation.name);
                 }
                 Message::OpenContacts => self.main = Main::Contacts,
             }
@@ -186,15 +183,19 @@ impl Page for MessangerWindow {
                         .fold(Column::new(), |column, widget| column.push(widget)),
                 )
             }
-            Main::Chat(id) => {
-                let widget = Column::new();
-                let chat = self.messangers_data[0].chat.get(id);
-                let t = match chat {
-                    Some(text) => text.as_str(),
-                    None => "test",
-                };
-                let widget = widget.push(Text::from(t));
-                widget
+            Main::Chat { messages } => {
+                let chat = Column::new();
+                let chat = chat.push(
+                    Scrollable::new(
+                        messages
+                            .iter()
+                            .map(|msg| Text::from(msg.text.as_str()))
+                            .fold(Column::new(), |column, widget| column.push(widget)),
+                    )
+                    .height(Length::Shrink),
+                );
+                let chat = chat.push(TextInput::new("New msg...", ""));
+                chat
             }
         };
 

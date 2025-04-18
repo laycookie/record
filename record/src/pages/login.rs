@@ -1,4 +1,5 @@
 use adaptors::{discord::Discord, Messanger};
+use futures::join;
 use iced::{
     widget::{column, combo_box::State, Button, Column, ComboBox, Container, TextInput},
     Alignment, Element, Task,
@@ -101,6 +102,13 @@ impl Page for Login {
                         MessangerWindow::new(self.auth.clone()),
                         |r| MyAppMessage::Login(Message::AuthFromToken(r)),
                     ));
+                    // return UpdateResult::Task(Task::perform(
+                    //     (self.auth.write(), MessangerWindow::new(self.auth.clone())),
+                    //     |(a, r)| {
+                    //         println!("tes");
+                    //         MyAppMessage::Login(Message::AuthFromToken(r))
+                    //     },
+                    // ));
                 }
                 Message::AuthFromToken(res) => {
                     let chat = res.unwrap();

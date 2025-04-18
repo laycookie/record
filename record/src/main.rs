@@ -56,12 +56,6 @@ impl App {
             pages::UpdateResult::Task(task) => task,
             pages::UpdateResult::None => Task::none(),
         }
-        // let result = self.memoryless_page.update(message);
-        // if let Some(p) = page {
-        //     self.memoryless_page = p;
-        // }
-
-        // task
     }
     fn view(&self, _window: window::Id) -> Element<MyAppMessage> {
         self.memoryless_page.view()

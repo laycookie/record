@@ -14,7 +14,7 @@ pub struct User {
     pub username: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Message {
     pub(crate) id: String,
     pub sender: User,
